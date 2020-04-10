@@ -16,7 +16,7 @@ def find_pdfs_in_path(docs: Documents):
                 docs.num_docs += 1
         elif os.path.isfile(docs.path):
             docs.num_docs = 1
-            docs.num_docs = docs.append(Document(docs.path))
+            docs.docs.append(Document(docs.path))
 
     else:
-        print("Provided path does not exist")
+        raise Exception("Provided path does not exist")
