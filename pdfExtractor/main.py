@@ -5,7 +5,7 @@ import sys
 
 from pdfExtractor.batchProcessing import find_pdfs_in_path
 from pdfExtractor.dataStructure import Documents
-from pdfExtractor.pdfParser import extract_info
+from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -48,12 +48,16 @@ except Exception as e:
 logger.info("Found " + str(docs.num_docs) + " PDFs")
 
 # Extract information about PDFs
-logger.info("Extracting information about PDFs")
 for doc in docs.docs:
     extract_info(doc)
-    logger.debug('Document information:' + '\n' + doc.documentInfoToString())
+    logger.debug('Document information:' + '\n' + doc.document_info_to_string())
 logger.info("Finished extracting information")
 
+# Extract table of contents
+for doc in docs.docs:
+    get_pdf_object(doc)
+    extract_table_of_contents(doc)
+    logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
 logger.info("Parsing PDFs")
 # TODO: parse pdf
 logger.info("Done parsing PDFs")

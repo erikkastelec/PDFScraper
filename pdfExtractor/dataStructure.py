@@ -17,10 +17,19 @@ class Document:
         self.image = []
         self.table = []
         self.paragraphs = []
+        self.table_of_contents = []
+        self.layout = None
+        self.doc = None
 
-    def documentInfoToString(self):
+    def document_info_to_string(self):
         return "Author: " + self.author + "\n" \
                + "Producer: " + self.producer + "\n" \
                + "Subject: " + self.subject + "\n" \
                + "Title: " + self.title + "\n" \
                + "Number of Pages: " + str(self.num_pages)
+
+    def table_of_contents_to_string(self):
+        output_string = ""
+        for tup in self.table_of_contents:
+            output_string += str(tup[0]) + ': ' + tup[1] + '\n'
+        return output_string
