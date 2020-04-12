@@ -18,8 +18,9 @@ class Document:
         self.table = []
         self.paragraphs = []
         self.table_of_contents = []
-        self.layout = None
+        self.page_layouts = []
         self.doc = None
+        self.extractable = False
 
     def document_info_to_string(self):
         return "Author: " + self.author + "\n" \
