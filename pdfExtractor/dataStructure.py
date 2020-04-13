@@ -1,16 +1,21 @@
+import tempfile
+
+
 class Documents:
     def __init__(self, path: str):
         self.num_docs = 0
         self.docs = []
         self.path = path
+        self.temporary_dir = tempfile.TemporaryDirectory()
 
 
 class Document:
-    def __init__(self, path: str):
-        self.author = None
-        self.producer = None
-        self.subject = None
-        self.title = None
+    def __init__(self, path: str, parent: Documents):
+        self.parent = parent
+        self.author = "unknown"
+        self.producer = "unknown"
+        self.subject = "unknown"
+        self.title = "unknown"
         self.path = path
         self.num_pages = None
         self.text = list()
@@ -21,6 +26,7 @@ class Document:
         self.page_layouts = []
         self.doc = None
         self.extractable = False
+        self.filename = None
 
     def document_info_to_string(self):
         return "Author: " + self.author + "\n" \

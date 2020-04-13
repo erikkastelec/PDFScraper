@@ -13,6 +13,12 @@ camelot-py = "*"
 textract = "*"
 pypdf2 = "*"
 pdfminer-six = "*"
+wand = "*"
+opencv-python = "*"
+pdf2image = "*"
+langdetect = "*"
+iso-639 = "*"
+tesseract = "*"
 
 [requires]
 python_version = "3.8"
