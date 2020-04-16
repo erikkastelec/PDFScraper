@@ -1,6 +1,7 @@
 import logging
 import ntpath
 import os
+import re
 import sys
 from io import StringIO
 
@@ -42,7 +43,7 @@ def get_filename(document: Document):
 
 # Convert document pages to jpg images
 def pdf_to_image(document: Document):
-    pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=200, size=(1654, 2340))
+    pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
     for i in range(len(pages)):
         pages[i].save(document.parent.path + document.filename + "_" + str(i) + ".jpg")
 
@@ -59,20 +60,29 @@ def extract_text_OCR(document):
         # img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((2, 2), np.uint8))
         cv2.imwrite(document.parent.path + document.filename + "_" + str(i) + "cleaned.jpg", img)
         # Extract testing using OCR
+
         if i == 0:
-            language = get_OCR_config(img)
+            language = get_language(img)
         try:
-            text = pytesseract.image_to_string(img, lang=language, config='--psm 6')
+            text = pytesseract.image_to_string(img, lang=language, config='--psm 1')
+            # Remove lines with only whitespaces or newline
+            lines = text.split("\n\n")
+            out = []
+            for line in lines:
+                if re.search(r"\S+", line):
+                    out.append(line + '\n')
+            document.paragraphs = out
+            document.text = "".join(out)
         except TesseractNotFoundError:
             logger.error("Tesseract is not install. Exiting")
             sys.exit(1)
         except TesseractError as e:
             logger.error(e)
             sys.exit(1)
-        document.text = text
 
 
-def get_OCR_config(img):
+# get language from text
+def get_language(img):
     # TODO: Implement input parameter for specifying possible languages
     config = r'-l eng+slv --psm 6'
     try:

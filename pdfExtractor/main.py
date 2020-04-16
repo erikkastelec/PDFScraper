@@ -68,8 +68,8 @@ for doc in docs.docs:
             pdf_to_image(doc)
             extract_text_OCR(doc)
             logger.debug(doc.text)
-        else:
-            logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
+        logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
+
     else:
         logger.warning("Skipping parsing. Document is not extractable.")
     logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(docs.num_docs) + ' documents')
