@@ -130,11 +130,13 @@ def extract_text(document: Document):
 def extract_info(document: Document):
     with open(document.path, 'rb') as f:
         pdf = PdfFileReader(f, strict=False)
-        if pdf.isEncrypted:
-            logger.error("Encrypted files are currently not supported")
-            logger.error("Aborting")
-            sys.exit(1)
-            # TODO: Handle encrypted files
+        # TODO: Handle encrypted files
+        # if pdf.isEncrypted:
+        #     print(pdf.isEncrypted)
+        #     logger.error("Encrypted files are currently not supported")
+        #     logger.error("Aborting")
+        #     sys.exit(1)
+
         document.num_pages = pdf.getNumPages()
         info = pdf.getDocumentInfo()
         if info is not None:

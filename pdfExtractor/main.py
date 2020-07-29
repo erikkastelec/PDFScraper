@@ -40,9 +40,9 @@ signal.signal(signal.SIGINT, signal_handler)
 
 # Read PDFs from path
 docs = Documents(args["path"])
-logger.info('Finding PDFs in path')
+logger.info('Finding PDFs in ' + docs.path)
 try:
-    find_pdfs_in_path(docs)
+    find_pdfs_in_path(docs, docs.path)
 except Exception as e:
     logger.error(e)
     sys.exit(1)

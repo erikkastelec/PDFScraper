@@ -4,21 +4,21 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+pylint = "==2.4.4"
 
 [packages]
-pylint = "==2.4.4"
+pdfminer.six = "20200726"
 mypy = "*"
 tabula-py = "*"
 camelot-py = "*"
-textract = "*"
 pypdf2 = "*"
-pdfminer-six = "*"
 wand = "*"
 opencv-python = "*"
 pdf2image = "*"
 langdetect = "*"
 iso-639 = "*"
-tesseract = "*"
+pytesseract = "*"
+yattag = "*"
 
 [requires]
 python_version = "3.8"
