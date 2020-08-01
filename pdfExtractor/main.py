@@ -5,27 +5,46 @@ import sys
 
 from pdfExtractor.batchProcessing import find_pdfs_in_path
 from pdfExtractor.dataStructure import Documents
-from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, extract_paragraphs, \
-    extract_page_layouts, get_filename, pdf_to_image, extract_text_OCR
+from pdfExtractor.outputGenerator import generate_html
+from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
+    extract_page_layouts, get_filename, pdf_to_image, extract_text_ocr, extract_tables, parse_layouts
 
-# Set up logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(logging.DEBUG)
-consoleHandler.setFormatter(formatter)
-fileHandler = logging.FileHandler('pdfExtractor.log', 'w')
-fileHandler.setLevel(logging.DEBUG)
-fileHandler.setFormatter(formatter)
-logger.addHandler(consoleHandler)
-logger.addHandler(fileHandler)
-logger.info("Started")
+# Define logger level helper
+switcher = {
+    'critical': 50,
+    'error': 40,
+    'warning': 30,
+    'info': 20,
+    'debug': 10
+}
 
 # Parse arguments from command line
 argumentParser = argparse.ArgumentParser()
 argumentParser.add_argument('--path', help='path to pdf folder or file', default=".")
+argumentParser.add_argument('--out', help='path to output file location', default=".")
+argumentParser.add_argument('--log_level', choices=['critical', 'error', 'warning', 'info', 'debug'], help='logger '
+                                                                                                           'level to '
+                                                                                                           'use ('
+                                                                                                           'default: '
+                                                                                                           'info)',
+                            default='info')
 args = vars(argumentParser.parse_args())
+output_path = args["out"]
+log_level = switcher.get(args["log_level"])
+
+# Set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(log_level)
+consoleHandler.setFormatter(formatter)
+fileHandler = logging.FileHandler('pdfExtractor.log', 'w')
+fileHandler.setLevel(log_level)
+fileHandler.setFormatter(formatter)
+logger.addHandler(consoleHandler)
+logger.addHandler(fileHandler)
+logger.info("Started")
 
 
 # Define signal handlers
@@ -61,12 +80,13 @@ for doc in docs.docs:
         extract_table_of_contents(doc)
         logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
         extract_page_layouts(doc)
-        extract_paragraphs(doc)
+        extract_tables(doc, output_path)
+        parse_layouts(doc)
         if len(doc.paragraphs) == 0:
-            logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
+            logger.info("Regular text extraction is not possible. Trying to extract text using only OCR")
             get_filename(doc)
             pdf_to_image(doc)
-            extract_text_OCR(doc)
+            extract_text_ocr(doc)
             logger.debug(doc.text)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 
@@ -77,4 +97,5 @@ for doc in docs.docs:
 
 logger.info('Done parsing PDFs')
 logger.info('Stopping')
+generate_html(output_path, docs)
 sys.exit(0)

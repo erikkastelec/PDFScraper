@@ -4,7 +4,10 @@ import os
 import re
 import sys
 from io import StringIO
+from pathlib import Path
+from typing import TYPE_CHECKING
 
+import camelot
 import cv2
 import pytesseract
 from PyPDF2 import PdfFileReader
@@ -12,7 +15,7 @@ from iso639 import languages
 from langdetect import detect_langs
 from pdf2image import pdf2image
 from pdfminer.converter import PDFPageAggregator, TextConverter
-from pdfminer.layout import LAParams, LTTextBoxHorizontal
+from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTImage
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
@@ -22,18 +25,21 @@ from pytesseract import TesseractNotFoundError, TesseractError
 from pdfExtractor.dataStructure import Document
 
 # Set up logger
+log_level = 20
+if TYPE_CHECKING:
+    from pdfExtractor.main import log_level
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(log_level)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(logging.DEBUG)
+consoleHandler.setLevel(log_level)
 consoleHandler.setFormatter(formatter)
 fileHandler = logging.FileHandler('pdfExtractor.log', 'w')
-fileHandler.setLevel(logging.DEBUG)
+fileHandler.setLevel(log_level)
 fileHandler.setFormatter(formatter)
 logger.addHandler(consoleHandler)
 logger.addHandler(fileHandler)
-logger.info("Started")
+
 
 
 # Get filename from path
@@ -49,7 +55,7 @@ def pdf_to_image(document: Document):
 
 
 # Preprocess the images for OCR then extract them
-def extract_text_OCR(document):
+def extract_text_ocr(document):
     for i in range(document.num_pages):
         img = cv2.imread(document.parent.path + document.filename + "_" + str(i) + ".jpg")
         # RGB to grayscale
@@ -74,7 +80,7 @@ def extract_text_OCR(document):
             document.paragraphs = out
             document.text = "".join(out)
         except TesseractNotFoundError:
-            logger.error("Tesseract is not install. Exiting")
+            logger.error("Tesseract is not installed. Exiting")
             sys.exit(1)
         except TesseractError as e:
             logger.error(e)
@@ -83,12 +89,12 @@ def extract_text_OCR(document):
 
 # get language from text
 def get_language(img):
-    # TODO: Implement input parameter for specifying possible languages
+    # TODO: Implement input parameter for specifying possible languages. Slovene and english by default.
     config = r'-l eng+slv --psm 6'
     try:
         text = pytesseract.image_to_string(img, config=config)
     except TesseractNotFoundError:
-        logger.error("Tesseract is not install. Exiting")
+        logger.error("Tesseract is not installed. Exiting")
         sys.exit(1)
     except TesseractError as e:
         logger.error(e)
@@ -166,12 +172,35 @@ def extract_table_of_contents(document: Document):
         logger.warning("Could not get table of contents for document at path " + document.path)
 
 
-def extract_paragraphs(document: Document):
+def parse_layouts(document: Document):
     for page_layout in document.page_layouts:
         for element in page_layout:
-            if isinstance(element, LTTextBoxHorizontal):
-                document.paragraphs.append(element.get_text())
-            # TODO: Implement logic for other types
+            # TODO: improve efficiency
+            # extract text and images if there is no table in that location
+            for coordinates in document.tables_coordinates:
+                if not (coordinates[0] < element.bbox[0] < coordinates[2] or coordinates[1] < element.bbox[1] <
+                        coordinates[3]):
+                    if isinstance(element, LTTextBoxHorizontal):
+                        document.paragraphs.append(element.get_text())
+                    elif isinstance(element, LTImage):
+                        # Save image objects
+                        document.images.append(element)
+            # TODO: recursively interate over LTFigure to find images
+
+
+def extract_tables(document: Document, output_path: str):
+    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages))
+    # find coordinates of table regions to exclude them from text extraction
+    for table in tables:
+        first_cell_coord = table.cells[0][0].lt
+        last_cel_coord = table.cells[-1][-1].rb
+        document.tables_coordinates.append(first_cell_coord + last_cel_coord)
+
+    if not os.path.isdir(output_path):
+        output_path = str(Path(output_path).parent)
+    tables.export(output_path + "/tables", f='html')
+
+    document.tables = tables
 
 
 if __name__ == "__main__":
