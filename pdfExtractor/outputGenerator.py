@@ -4,12 +4,13 @@ import re
 import tempfile
 from pathlib import Path
 
+from fuzzywuzzy import fuzz
 from yattag import Doc, indent
 
 from pdfExtractor.dataStructure import Documents
 
 
-def generate_html(output_path: str, docs: Documents):
+def generate_html(output_path: str, docs: Documents, searchWord: str):
     # TODO: implement html generation
     doc, tag, text = Doc().tagtext()
 
@@ -27,8 +28,9 @@ def generate_html(output_path: str, docs: Documents):
                         text("Found in document with location: " + str(document.path))
                     # output extracted paragraphs
                     for paragraph in document.paragraphs:
-                        with tag('p'):
-                            text(paragraph)
+                        if fuzz.partial_token_set_ratio(paragraph, searchWord) > 70:
+                            with tag('p'):
+                                text(paragraph)
                     # output extracted tables
                     table_index = 0
                     for table in document.tables:
@@ -37,7 +39,8 @@ def generate_html(output_path: str, docs: Documents):
                             table.to_html(tempfile.gettempdir() + "/table")
                             with codecs.open(tempfile.gettempdir() + "/table", 'r') as table_file:
                                 # replace \n in table to fix formating
-                                doc.asis(re.sub(r'\\n', '<br>', table_file.read()))
+                                tab = re.sub(r'\\n', '<br>', table_file.read())
+                                doc.asis(tab)
                                 os.remove(tempfile.gettempdir() + "/table")
 
     # write HTML to file

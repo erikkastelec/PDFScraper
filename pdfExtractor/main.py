@@ -28,9 +28,12 @@ argumentParser.add_argument('--log_level', choices=['critical', 'error', 'warnin
                                                                                                            'default: '
                                                                                                            'info)',
                             default='info')
+argumentParser.add_argument('--search', help='word to search for', default="default")
+
 args = vars(argumentParser.parse_args())
 output_path = args["out"]
 log_level = switcher.get(args["log_level"])
+searchWord = args["search"]
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -71,7 +74,6 @@ logger.info('Parsing ' + str(docs.num_docs) + ' documents')
 # Extract information about PDFs
 progress_counter = 1
 for doc in docs.docs:
-
     get_pdf_object(doc)
 
     if doc.extractable:
@@ -97,5 +99,5 @@ for doc in docs.docs:
 
 logger.info('Done parsing PDFs')
 logger.info('Stopping')
-generate_html(output_path, docs)
+generate_html(output_path, docs, searchWord)
 sys.exit(0)
