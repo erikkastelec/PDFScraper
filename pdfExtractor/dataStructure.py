@@ -1,4 +1,4 @@
-import tempfile
+
 
 
 class Documents:
@@ -6,7 +6,6 @@ class Documents:
         self.num_docs = 0
         self.docs = []
         self.path = path
-        self.temporary_dir = tempfile.TemporaryDirectory()
 
 
 class Document:

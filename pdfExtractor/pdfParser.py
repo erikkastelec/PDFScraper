@@ -4,7 +4,6 @@ import os
 import re
 import sys
 from io import StringIO
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import camelot
@@ -195,10 +194,6 @@ def extract_tables(document: Document, output_path: str):
         first_cell_coord = table.cells[0][0].lt
         last_cel_coord = table.cells[-1][-1].rb
         document.tables_coordinates.append(first_cell_coord + last_cel_coord)
-
-    if not os.path.isdir(output_path):
-        output_path = str(Path(output_path).parent)
-    tables.export(output_path + "/tables", f='html')
 
     document.tables = tables
 

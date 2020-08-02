@@ -1,4 +1,7 @@
+import codecs
 import os
+import re
+import tempfile
 from pathlib import Path
 
 from yattag import Doc, indent
@@ -19,11 +22,23 @@ def generate_html(output_path: str, docs: Documents):
             doc_index = 0
             for document in docs.docs:
                 with tag('div', id=str(doc_index)):
+                    doc_index += 1
                     with tag('h2'):
                         text("Found in document with location: " + str(document.path))
+                    # output extracted paragraphs
                     for paragraph in document.paragraphs:
                         with tag('p'):
                             text(paragraph)
+                    # output extracted tables
+                    table_index = 0
+                    for table in document.tables:
+                        with tag('div', id="table" + str(table_index)):
+                            table_index += 1
+                            table.to_html(tempfile.gettempdir() + "/table")
+                            with codecs.open(tempfile.gettempdir() + "/table", 'r') as table_file:
+                                # replace \n in table to fix formating
+                                doc.asis(re.sub(r'\\n', '<br>', table_file.read()))
+                                os.remove(tempfile.gettempdir() + "/table")
 
     # write HTML to file
     # check if output path is a directory
