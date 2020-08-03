@@ -188,7 +188,7 @@ def parse_layouts(document: Document):
 
 
 def extract_tables(document: Document, output_path: str):
-    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages))
+    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), flavor='lattice')
     # find coordinates of table regions to exclude them from text extraction
     for table in tables:
         first_cell_coord = table.cells[0][0].lt
