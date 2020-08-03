@@ -54,7 +54,7 @@ def pdf_to_image(document: Document):
 
 
 # Preprocess the images for OCR then extract them
-def extract_text_ocr(document):
+def extract_text_ocr(document: Document, tessdata_location: str):
     for i in range(document.num_pages):
         img = cv2.imread(document.parent.path + document.filename + "_" + str(i) + ".jpg")
         # RGB to grayscale
@@ -67,9 +67,10 @@ def extract_text_ocr(document):
         # Extract testing using OCR
 
         if i == 0:
-            language = get_language(img)
+            language = get_language(img, tessdata_location)
         try:
-            text = pytesseract.image_to_string(img, lang=language, config='--psm 1')
+            config_options = '--psm 1 --tessdata-dir ' + tessdata_location
+            text = pytesseract.image_to_string(img, lang=language, config=config_options)
             # Remove lines with only whitespaces or newline
             lines = text.split("\n\n")
             out = []
@@ -87,9 +88,9 @@ def extract_text_ocr(document):
 
 
 # get language from text
-def get_language(img):
+def get_language(img, tessdata_location: str):
     # TODO: Implement input parameter for specifying possible languages. Slovene and english by default.
-    config = r'-l eng+slv --psm 6'
+    config = r'-l eng+slv --psm 6' + ' --tessdata-dir ' + tessdata_location
     try:
         text = pytesseract.image_to_string(img, config=config)
     except TesseractNotFoundError:

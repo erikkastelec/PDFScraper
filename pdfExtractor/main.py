@@ -29,11 +29,13 @@ argumentParser.add_argument('--log_level', choices=['critical', 'error', 'warnin
                                                                                                            'info)',
                             default='info')
 argumentParser.add_argument('--search', help='word to search for', default="default")
+argumentParser.add_argument('--tessdata', help='location of tesseract data files', default="/usr/share/tessdata")
 
 args = vars(argumentParser.parse_args())
 output_path = args["out"]
 log_level = switcher.get(args["log_level"])
 searchWord = args["search"]
+tessdata_location = args["tessdata"]
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -88,7 +90,7 @@ for doc in docs.docs:
             logger.info("Regular text extraction is not possible. Trying to extract text using only OCR")
             get_filename(doc)
             pdf_to_image(doc)
-            extract_text_ocr(doc)
+            extract_text_ocr(doc, tessdata_location)
             logger.debug(doc.text)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 
