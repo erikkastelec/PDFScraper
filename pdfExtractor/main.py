@@ -7,7 +7,7 @@ from pdfExtractor.batchProcessing import find_pdfs_in_path
 from pdfExtractor.dataStructure import Documents
 from pdfExtractor.outputGenerator import generate_html
 from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
-    extract_page_layouts, get_filename, pdf_to_image, extract_text_ocr, extract_tables, parse_layouts
+    extract_page_layouts, get_filename, pdf_to_image, parse_layouts
 
 # Define logger level helper
 switcher = {
@@ -84,13 +84,14 @@ for doc in docs.docs:
         extract_table_of_contents(doc)
         logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
         extract_page_layouts(doc)
-        extract_tables(doc, output_path)
+        # table extraction is possible only for text based PDFs
+        # extract_tables(doc, output_path)
         parse_layouts(doc)
         if len(doc.paragraphs) == 0:
             logger.info("Regular text extraction is not possible. Trying to extract text using only OCR")
             get_filename(doc)
             pdf_to_image(doc)
-            extract_text_ocr(doc, tessdata_location)
+            # extract_text_ocr(doc, tessdata_location)
             logger.debug(doc.text)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 

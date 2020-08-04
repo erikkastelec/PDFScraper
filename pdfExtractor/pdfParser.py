@@ -40,7 +40,6 @@ logger.addHandler(consoleHandler)
 logger.addHandler(fileHandler)
 
 
-
 # Get filename from path
 def get_filename(document: Document):
     document.filename = os.path.splitext(ntpath.basename(document.path))[0]
@@ -124,8 +123,9 @@ def extract_text(document: Document):
     with open(document.path, 'rb') as in_file:
         parser = PDFParser(in_file)
         pdf = PDFDocument(parser)
+        codec = 'unicode'
         rsrcmgr = PDFResourceManager()
-        device = TextConverter(rsrcmgr, output_string, laparams=LAParams())
+        device = TextConverter(rsrcmgr, output_string, codec=codec, laparams=LAParams())
         interpreter = PDFPageInterpreter(rsrcmgr, device)
         for page in PDFPage.create_pages(pdf):
             interpreter.process_page(page)
@@ -156,7 +156,7 @@ def extract_info(document: Document):
 # layout analysis for every page
 def extract_page_layouts(document: Document):
     resource_manager = PDFResourceManager()
-    laparams = LAParams()
+    laparams = LAParams(line_margin=0.8)
     page_aggregator = PDFPageAggregator(resource_manager, laparams=laparams)
     interpreter = PDFPageInterpreter(resource_manager, page_aggregator)
     for page in PDFPage.create_pages(document.doc):
@@ -177,15 +177,28 @@ def parse_layouts(document: Document):
         for element in page_layout:
             # TODO: improve efficiency
             # extract text and images if there is no table in that location
-            for coordinates in document.tables_coordinates:
-                if not (coordinates[0] < element.bbox[0] < coordinates[2] or coordinates[1] < element.bbox[1] <
-                        coordinates[3]):
-                    if isinstance(element, LTTextBoxHorizontal):
-                        document.paragraphs.append(element.get_text())
-                    elif isinstance(element, LTImage):
-                        # Save image objects
-                        document.images.append(element)
-            # TODO: recursively interate over LTFigure to find images
+            skip = False
+            if len(document.tables_coordinates) > 0:
+                for coordinates in document.tables_coordinates:
+                    # skip if element is inside already detected table
+                    if (coordinates[0] < element.bbox[0] < coordinates[2] or coordinates[1] < element.bbox[1] <
+                            coordinates[3]):
+                        skip = True
+                        break
+            if not skip:
+                if isinstance(element, LTTextBoxHorizontal):
+                    text = element.get_text()
+                    # fix Slovene chars and other anomalies
+                    text = re.sub(r'ˇs', "š", text)
+                    text = re.sub(r"ˇc", "č", text)
+                    text = re.sub(r"ˇz", "ž", text)
+                    text = re.sub(r"-\s", "", text)
+
+                    document.paragraphs.append(text)
+                elif isinstance(element, LTImage):
+                    # Save image objects
+                    document.images.append(element)
+                # TODO: recursively iterate over LTFigure to find images
 
 
 def extract_tables(document: Document, output_path: str):

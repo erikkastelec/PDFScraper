@@ -264,7 +264,13 @@ a {
 
                     # output extracted paragraphs
                     for paragraph in document.paragraphs:
-                        if fuzz.partial_ratio(search_word, paragraph) > 80:
+                        split = paragraph.split(".")
+                        print_paragraph = False
+                        for string in split:
+                            if (len(search_word) <= len(string)) and fuzz.partial_ratio(search_word, string) > 80:
+                                print_paragraph = True
+                                break
+                        if print_paragraph:
                             with tag('p'):
                                 if not header_printed:
                                     with tag('h2'):
