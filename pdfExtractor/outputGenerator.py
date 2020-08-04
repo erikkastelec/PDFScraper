@@ -282,10 +282,15 @@ a {
                     for table in document.tables:
                         with tag('div', id="table" + str(table_index), klass="container"):
                             table_index += 1
-                            tempfile_path = tempfile.gettempdir() + "/table"
+                            tempfile_path = tempfile.gettempdir() + "/pdfExtractor"
+                            try:
+                                os.makedirs(tempfile_path)
+                            except FileExistsError:
+                                pass
+                            tempfile_path = tempfile_path + "/table"
                             table.df[0].str.strip('.!? \n\t')
                             # perform fuzzy search over all columns
-                            for i in range(0, table.shape[1] - 1):
+                            for i in range(0, table.shape[1]):
                                 for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
                                                          scorer=fuzz.partial_ratio):
                                     if x[1] > 80:

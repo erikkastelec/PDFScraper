@@ -1,13 +1,15 @@
 import argparse
 import logging
+import shutil
 import signal
 import sys
+import tempfile
 
 from pdfExtractor.batchProcessing import find_pdfs_in_path
 from pdfExtractor.dataStructure import Documents
 from pdfExtractor.outputGenerator import generate_html
 from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
-    extract_page_layouts, get_filename, pdf_to_image, parse_layouts
+    extract_page_layouts, get_filename, pdf_to_image, parse_layouts, extract_tables, extract_text_ocr
 
 # Define logger level helper
 switcher = {
@@ -85,13 +87,17 @@ for doc in docs.docs:
         logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
         extract_page_layouts(doc)
         # table extraction is possible only for text based PDFs
-        # extract_tables(doc, output_path)
+        extract_tables(doc, output_path)
         parse_layouts(doc)
         if len(doc.paragraphs) == 0:
-            logger.info("Regular text extraction is not possible. Trying to extract text using only OCR")
+            logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
             get_filename(doc)
             pdf_to_image(doc)
-            # extract_text_ocr(doc, tessdata_location)
+            extract_text_ocr(doc, tessdata_location)
+            get_pdf_object(doc)
+            extract_page_layouts(doc)
+            extract_tables(doc, output_path)
+            parse_layouts(doc)
             logger.debug(doc.text)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 
@@ -103,4 +109,6 @@ for doc in docs.docs:
 logger.info('Done parsing PDFs')
 logger.info('Stopping')
 generate_html(output_path, docs, searchWord)
+# clean up temporary directory
+shutil.rmtree(tempfile.gettempdir() + "/pdfExtractor", ignore_errors=True)
 sys.exit(0)

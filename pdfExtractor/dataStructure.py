@@ -16,6 +16,7 @@ class Document:
         self.subject = "unknown"
         self.title = "unknown"
         self.path = path
+        self.ocr_path = path
         self.num_pages = None
         self.text = []
         self.images = []

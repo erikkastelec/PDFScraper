@@ -3,13 +3,14 @@ import ntpath
 import os
 import re
 import sys
+import tempfile
 from io import StringIO
 from typing import TYPE_CHECKING
 
 import camelot
 import cv2
 import pytesseract
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfFileReader, PdfFileWriter
 from iso639 import languages
 from langdetect import detect_langs
 from pdf2image import pdf2image
@@ -48,43 +49,63 @@ def get_filename(document: Document):
 # Convert document pages to jpg images
 def pdf_to_image(document: Document):
     pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
+    # TODO: implement saving to temp dir with mkstemp for better security
+    tempfile_path = tempfile.gettempdir() + "/pdfExtractor"
+    try:
+        os.makedirs(tempfile_path)
+    except FileExistsError:
+        pass
+
     for i in range(len(pages)):
-        pages[i].save(document.parent.path + document.filename + "_" + str(i) + ".jpg")
+        pages[i].save(tempfile_path + "/" + document.filename + "_" + str(i) + ".jpg")
 
 
 # Preprocess the images for OCR then extract them
 def extract_text_ocr(document: Document, tessdata_location: str):
+    pdf_pages = []
     for i in range(document.num_pages):
-        img = cv2.imread(document.parent.path + document.filename + "_" + str(i) + ".jpg")
+        img = cv2.imread(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".jpg")
+        # remove temporary image file
+        os.remove(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".jpg")
         # RGB to grayscale
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # Threshold
         img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
         # Perform opening
         # img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((2, 2), np.uint8))
-        cv2.imwrite(document.parent.path + document.filename + "_" + str(i) + "cleaned.jpg", img)
+        # cv2.imwrite(document.parent.path + document.filename + "_" + str(i) + "cleaned.jpg", img)
         # Extract testing using OCR
 
         if i == 0:
             language = get_language(img, tessdata_location)
         try:
             config_options = '--psm 1 --tessdata-dir ' + tessdata_location
-            text = pytesseract.image_to_string(img, lang=language, config=config_options)
-            # Remove lines with only whitespaces or newline
-            lines = text.split("\n\n")
-            out = []
-            for line in lines:
-                if re.search(r"\S+", line):
-                    out.append(line + '\n')
-            document.paragraphs = out
-            document.text = "".join(out)
+            text = pytesseract.image_to_pdf_or_hocr(img, extension='pdf', lang=language, config=config_options)
+            with open(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".pdf",
+                      'w+b') as f:
+                f.write(text)
+                pdf_pages.append(
+                    tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".pdf")
         except TesseractNotFoundError:
             logger.error("Tesseract is not installed. Exiting")
             sys.exit(1)
         except TesseractError as e:
             logger.error(e)
             sys.exit(1)
-
+    pdf_writer = PdfFileWriter()
+    for filename in pdf_pages:
+        pdf_file = open(filename, 'rb')
+        pdf_reader = PdfFileReader(pdf_file)
+        for i in range(pdf_reader.numPages):
+            page = pdf_reader.getPage(i)
+            pdf_writer.addPage(page)
+    with open(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + ".pdf", 'w+b') as out:
+        pdf_writer.write(out)
+        out.close()
+        document.ocr_path = tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + ".pdf"
+    # cleanup temporary files
+    for filename in pdf_pages:
+        os.remove(filename)
 
 # get language from text
 def get_language(img, tessdata_location: str):
@@ -109,7 +130,8 @@ def get_language(img, tessdata_location: str):
 
 # parses Document to PDFDocument
 def get_pdf_object(document: Document):
-    file = open(document.path, 'rb')
+    # use OCR file if available
+    file = open(document.ocr_path, 'rb')
     parser = PDFParser(file)
     document.doc = PDFDocument(parser)
     parser.set_document(document.doc)
