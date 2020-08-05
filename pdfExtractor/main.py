@@ -9,7 +9,7 @@ from pdfExtractor.batchProcessing import find_pdfs_in_path
 from pdfExtractor.dataStructure import Documents
 from pdfExtractor.outputGenerator import generate_html
 from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
-    extract_page_layouts, get_filename, pdf_to_image, parse_layouts, extract_tables, extract_text_ocr
+    extract_page_layouts, get_filename, pdf_to_image, parse_layouts, extract_text_ocr
 
 # Define logger level helper
 switcher = {
@@ -19,6 +19,19 @@ switcher = {
     'info': 20,
     'debug': 10
 }
+
+
+# boolean input helper for ArgumentParser
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 # Parse arguments from command line
 argumentParser = argparse.ArgumentParser()
@@ -32,12 +45,14 @@ argumentParser.add_argument('--log_level', choices=['critical', 'error', 'warnin
                             default='info')
 argumentParser.add_argument('--search', help='word to search for', default="default")
 argumentParser.add_argument('--tessdata', help='location of tesseract data files', default="/usr/share/tessdata")
+argumentParser.add_argument('--tables', type=str2bool, help='should tables be extracted and searched', default=True)
 
 args = vars(argumentParser.parse_args())
 output_path = args["out"]
 log_level = switcher.get(args["log_level"])
 searchWord = args["search"]
 tessdata_location = args["tessdata"]
+extract_tables = args["tables"]
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -87,7 +102,8 @@ for doc in docs.docs:
         logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
         extract_page_layouts(doc)
         # table extraction is possible only for text based PDFs
-        extract_tables(doc, output_path)
+        if extract_tables:
+            extract_tables(doc, output_path)
         parse_layouts(doc)
         if len(doc.paragraphs) == 0:
             logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
@@ -96,7 +112,8 @@ for doc in docs.docs:
             extract_text_ocr(doc, tessdata_location)
             get_pdf_object(doc)
             extract_page_layouts(doc)
-            extract_tables(doc, output_path)
+            if extract_tables:
+                extract_tables(doc, output_path)
             parse_layouts(doc)
             logger.debug(doc.text)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
