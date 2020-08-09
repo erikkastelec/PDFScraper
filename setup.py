@@ -1,11 +1,43 @@
 import setuptools
 
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
-
 setuptools.setup(
+    install_requires=[
+        "camelot-py==0.8.2",
+        "cffi==1.14.1",
+        "chardet==3.0.4; python_version > '3.0'",
+        "click==7.1.2",
+        "cryptography==3.0",
+        "distro==1.5.0",
+        "et-xmlfile==1.0.1",
+        "fuzzywuzzy==0.18.0",
+        "iso-639==0.4.5",
+        "jdcal==1.4.1",
+        "langdetect==1.0.8",
+        "numpy==1.19.1",
+        "opencv-python==4.3.0.36",
+        "openpyxl==3.0.4",
+        "pandas==1.1.0",
+        "pdf2image==1.13.1",
+        "pdfminer-six==20200726",
+        "pdfminer.six==20200726",
+        "pillow==7.2.0",
+        "pycparser==2.20",
+        "pypdf2==1.26.0",
+        "pytesseract==0.3.4",
+        "python-dateutil==2.8.1",
+        "python-levenshtein==0.12.0",
+        "pytz==2020.1",
+        "six==1.15.0",
+        "sortedcontainers==2.2.2",
+        "tabula-py==2.1.1",
+        "wand==0.6.2",
+        "yattag==1.14.0",
+    ],
     name="PDFScraper",
-    version="1.0.0",
+    version="1.0.4",
     author="Erik Kastelec",
     author_email="erikkastelec@gmail.com",
     description="PDF text and table search",
@@ -18,5 +50,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: Unix",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )
