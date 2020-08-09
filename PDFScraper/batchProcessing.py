@@ -1,7 +1,7 @@
 import os
 
-from pdfExtractor.dataStructure import Document
-from pdfExtractor.dataStructure import Documents
+from PDFScraper.dataStructure import Document
+from PDFScraper.dataStructure import Documents
 
 
 def find_pdfs_in_path(docs: Documents, path: str):

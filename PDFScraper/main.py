@@ -5,11 +5,11 @@ import signal
 import sys
 import tempfile
 
-from pdfExtractor.batchProcessing import find_pdfs_in_path
-from pdfExtractor.dataStructure import Documents
-from pdfExtractor.outputGenerator import generate_html
-from pdfExtractor.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
-    extract_page_layouts, get_filename, pdf_to_image, parse_layouts, extract_text_ocr
+from PDFScraper.batchProcessing import find_pdfs_in_path
+from PDFScraper.dataStructure import Documents
+from PDFScraper.outputGenerator import generate_html
+from PDFScraper.pdfParser import extract_info, extract_table_of_contents, get_pdf_object, \
+    extract_page_layouts, get_filename, pdf_to_image, parse_layouts, extract_text_ocr, extract_tables
 
 # Define logger level helper
 switcher = {
@@ -52,7 +52,7 @@ output_path = args["out"]
 log_level = switcher.get(args["log_level"])
 searchWord = args["search"]
 tessdata_location = args["tessdata"]
-extract_tables = args["tables"]
+tables_extract = args["tables"]
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(log_level)
 consoleHandler.setFormatter(formatter)
-fileHandler = logging.FileHandler('pdfExtractor.log', 'w')
+fileHandler = logging.FileHandler('PDFScraper.log', 'w')
 fileHandler.setLevel(log_level)
 fileHandler.setFormatter(formatter)
 logger.addHandler(consoleHandler)
@@ -102,7 +102,7 @@ for doc in docs.docs:
         logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
         extract_page_layouts(doc)
         # table extraction is possible only for text based PDFs
-        if extract_tables:
+        if tables_extract:
             extract_tables(doc, output_path)
         parse_layouts(doc)
         if len(doc.paragraphs) == 0:
@@ -112,7 +112,7 @@ for doc in docs.docs:
             extract_text_ocr(doc, tessdata_location)
             get_pdf_object(doc)
             extract_page_layouts(doc)
-            if extract_tables:
+            if tables_extract:
                 extract_tables(doc, output_path)
             parse_layouts(doc)
             logger.debug(doc.text)
@@ -127,5 +127,5 @@ logger.info('Done parsing PDFs')
 logger.info('Stopping')
 generate_html(output_path, docs, searchWord)
 # clean up temporary directory
-shutil.rmtree(tempfile.gettempdir() + "/pdfExtractor", ignore_errors=True)
+shutil.rmtree(tempfile.gettempdir() + "/PDFScraper", ignore_errors=True)
 sys.exit(0)

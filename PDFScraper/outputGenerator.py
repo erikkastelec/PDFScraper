@@ -7,7 +7,7 @@ from pathlib import Path
 from fuzzywuzzy import fuzz, process
 from yattag import Doc, indent
 
-from pdfExtractor.dataStructure import Documents
+from PDFScraper.dataStructure import Documents
 
 
 def generate_html(output_path: str, docs: Documents, search_word: str):
@@ -282,7 +282,7 @@ a {
                     for table in document.tables:
                         with tag('div', id="table" + str(table_index), klass="container"):
                             table_index += 1
-                            tempfile_path = tempfile.gettempdir() + "/pdfExtractor"
+                            tempfile_path = tempfile.gettempdir() + "/PDFScraper"
                             try:
                                 os.makedirs(tempfile_path)
                             except FileExistsError:

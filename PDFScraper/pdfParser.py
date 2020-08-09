@@ -22,19 +22,19 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pytesseract import TesseractNotFoundError, TesseractError
 
-from pdfExtractor.dataStructure import Document
+from PDFScraper.dataStructure import Document
 
 # Set up logger
 log_level = 20
 if TYPE_CHECKING:
-    from pdfExtractor.main import log_level
+    from PDFScraper.main import log_level
 logger = logging.getLogger(__name__)
 logger.setLevel(log_level)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(log_level)
 consoleHandler.setFormatter(formatter)
-fileHandler = logging.FileHandler('pdfExtractor.log', 'w')
+fileHandler = logging.FileHandler('PDFScraper.log', 'w')
 fileHandler.setLevel(log_level)
 fileHandler.setFormatter(formatter)
 logger.addHandler(consoleHandler)
@@ -50,7 +50,7 @@ def get_filename(document: Document):
 def pdf_to_image(document: Document):
     pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
     # TODO: implement saving to temp dir with mkstemp for better security
-    tempfile_path = tempfile.gettempdir() + "/pdfExtractor"
+    tempfile_path = tempfile.gettempdir() + "/PDFScraper"
     try:
         os.makedirs(tempfile_path)
     except FileExistsError:
@@ -64,9 +64,9 @@ def pdf_to_image(document: Document):
 def extract_text_ocr(document: Document, tessdata_location: str):
     pdf_pages = []
     for i in range(document.num_pages):
-        img = cv2.imread(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".jpg")
+        img = cv2.imread(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
         # remove temporary image file
-        os.remove(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".jpg")
+        os.remove(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
         # RGB to grayscale
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # Threshold
@@ -81,11 +81,11 @@ def extract_text_ocr(document: Document, tessdata_location: str):
         try:
             config_options = '--psm 1 --tessdata-dir ' + tessdata_location
             text = pytesseract.image_to_pdf_or_hocr(img, extension='pdf', lang=language, config=config_options)
-            with open(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".pdf",
+            with open(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".pdf",
                       'w+b') as f:
                 f.write(text)
                 pdf_pages.append(
-                    tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + "_" + str(i) + ".pdf")
+                    tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".pdf")
         except TesseractNotFoundError:
             logger.error("Tesseract is not installed. Exiting")
             sys.exit(1)
@@ -99,10 +99,10 @@ def extract_text_ocr(document: Document, tessdata_location: str):
         for i in range(pdf_reader.numPages):
             page = pdf_reader.getPage(i)
             pdf_writer.addPage(page)
-    with open(tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + ".pdf", 'w+b') as out:
+    with open(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + ".pdf", 'w+b') as out:
         pdf_writer.write(out)
         out.close()
-        document.ocr_path = tempfile.gettempdir() + "/pdfExtractor" + "/" + document.filename + ".pdf"
+        document.ocr_path = tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + ".pdf"
     # cleanup temporary files
     for filename in pdf_pages:
         os.remove(filename)

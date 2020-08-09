@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="pdfSearch",
+    name="PDFScraper",
     version="1.0.0",
     author="Erik Kastelec",
     author_email="erikkastelec@gmail.com",
     description="PDF text and table search",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/erikkastelec/pdfSearch",
+    url="https://github.com/erikkastelec/PDFScraper",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
