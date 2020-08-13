@@ -13,6 +13,7 @@ import pytesseract
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from iso639 import languages
 from langdetect import detect_langs
+import numpy as np
 from pdf2image import pdf2image
 from pdfminer.converter import PDFPageAggregator, TextConverter
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTImage
@@ -21,7 +22,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pytesseract import TesseractNotFoundError, TesseractError
-
+from scipy.ndimage import interpolation as inter
 from PDFScraper.dataStructure import Document
 
 # Set up logger
@@ -48,34 +49,102 @@ def get_filename(document: Document):
 
 # Convert document pages to jpg images
 def pdf_to_image(document: Document):
-    pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
-    # TODO: implement saving to temp dir with mkstemp for better security
     tempfile_path = tempfile.gettempdir() + "/PDFScraper"
     try:
         os.makedirs(tempfile_path)
     except FileExistsError:
         pass
 
-    for i in range(len(pages)):
-        pages[i].save(tempfile_path + "/" + document.filename + "_" + str(i) + ".jpg")
+    if document.isPDF:
+        pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
+        # TODO: implement saving to temp dir with mkstemp for better security
+        for i in range(len(pages)):
+            pages[i].save(tempfile_path + "/" + document.filename + "_" + str(i) + ".jpg")
+    else:
+        img = cv2.imread(document.path)
+        cv2.imwrite(tempfile_path + "/" + document.filename + "_0.jpg", img)
+
+
+# helper function for preserving aspect ration when resizing
+def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+
+    # if both the width and height are None, then return the
+    # original image
+    if width is None and height is None:
+        return image
+
+    # check to see if the width is None
+    if width is None:
+        # calculate the ratio of the height and construct the
+        # dimensions
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # otherwise, the height is None
+    else:
+        # calculate the ratio of the width and construct the
+        # dimensions
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # resize the image
+    resized = cv2.resize(image, dim, interpolation=inter)
+
+    # return the resized image
+    return resized
+
+
+def preprocess_image(image):
+
+    # Denoising
+    image = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 15)
+    # RGB to grayscale
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Thresholding
+    image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+    # Skew correction
+    def determine_score(arr, angle):
+        data = inter.rotate(arr, angle, reshape=False, order=0)
+        histogram = np.sum(data, axis=1)
+        score = np.sum((histogram[1:] - histogram[:-1]) ** 2)
+        return histogram, score
+
+    scores = []
+    angles = np.arange(-5, 5 + 1, 1)
+    for angle in angles:
+        histogram, score = determine_score(image, angle)
+        scores.append(score)
+    best_angle = angles[scores.index(max(scores))]
+
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, best_angle, 1.0)
+    image = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, \
+                           borderMode=cv2.BORDER_REPLICATE)
+
+    return image
 
 
 # Preprocess the images for OCR then extract them
-def extract_text_ocr(document: Document, tessdata_location: str):
+def convert_to_pdf(document: Document, tessdata_location: str):
     pdf_pages = []
     for i in range(document.num_pages):
         img = cv2.imread(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
         # remove temporary image file
         os.remove(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
-        # RGB to grayscale
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Threshold
-        img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        # Perform opening
-        # img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((2, 2), np.uint8))
-        # cv2.imwrite(document.parent.path + document.filename + "_" + str(i) + "cleaned.jpg", img)
+        # Resize imput image if not PDF
+        if not document.isPDF:
+            image = image_resize(image, width=1024)
+        img = preprocess_image(img)
+
         # Extract testing using OCR
 
+        # Extract language only from the first page
         if i == 0:
             language = get_language(img, tessdata_location)
         try:
@@ -107,6 +176,7 @@ def extract_text_ocr(document: Document, tessdata_location: str):
     for filename in pdf_pages:
         os.remove(filename)
 
+
 # get language from text
 def get_language(img, tessdata_location: str):
     # TODO: Implement input parameter for specifying possible languages. Slovene and english by default.
@@ -125,6 +195,7 @@ def get_language(img, tessdata_location: str):
     detected_languages = detect_langs(text)
     # Convert iso-639-2b to iso-639-2t
     language = languages.get(part1=detected_languages[0].lang)
+
     return language.part2t
 
 
@@ -156,23 +227,31 @@ def extract_text(document: Document):
 
 
 def extract_info(document: Document):
-    with open(document.path, 'rb') as f:
-        pdf = PdfFileReader(f, strict=False)
-        # TODO: Handle encrypted files
-        # if pdf.isEncrypted:
-        #     print(pdf.isEncrypted)
-        #     logger.error("Encrypted files are currently not supported")
-        #     logger.error("Aborting")
-        #     sys.exit(1)
+    if document.isPDF:
+        with open(document.path, 'rb') as f:
+            pdf = PdfFileReader(f, strict=False)
+            # TODO: Handle encrypted files
+            # if pdf.isEncrypted:
+            #     print(pdf.isEncrypted)
+            #     logger.error("Encrypted files are currently not supported")
+            #     logger.error("Aborting")
+            #     sys.exit(1)
 
-        document.num_pages = pdf.getNumPages()
-        info = pdf.getDocumentInfo()
-        if info is not None:
-            document.author = "unknown" if not info.author else info.author
-            document.creator = "unknown" if not info.creator else info.creator
-            document.producer = "unknown" if not info.producer else info.producer
-            document.subject = "unknown" if not info.subject else info.subject
-            document.title = "unknown" if not info.title else info.title
+            document.num_pages = pdf.getNumPages()
+            info = pdf.getDocumentInfo()
+            if info is not None:
+                document.author = "unknown" if not info.author else info.author
+                document.creator = "unknown" if not info.creator else info.creator
+                document.producer = "unknown" if not info.producer else info.producer
+                document.subject = "unknown" if not info.subject else info.subject
+                document.title = "unknown" if not info.title else info.title
+    else:
+        document.num_pages = 1
+        document.author = "unknown"
+        document.creator = "unknown"
+        document.producer = "unknown"
+        document.subject = "unknown"
+        document.title = "unknown"
 
 
 # layout analysis for every page

@@ -9,8 +9,9 @@ class Documents:
 
 
 class Document:
-    def __init__(self, path: str, parent: Documents):
+    def __init__(self, path: str, parent: Documents, isPDF: bool):
         self.parent = parent
+        self.isPDF = isPDF
         self.author = "unknown"
         self.producer = "unknown"
         self.subject = "unknown"
