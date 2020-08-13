@@ -10,7 +10,7 @@ from yattag import Doc, indent
 from PDFScraper.dataStructure import Documents
 
 
-def generate_html(output_path: str, docs: Documents, search_word: str):
+def generate_html(output_path: str, docs: Documents, search_word: str, search_mode: bool):
     # TODO: implement html generation
     doc, tag, text = Doc().tagtext()
 
@@ -263,13 +263,23 @@ a {
                     header_printed = False
 
                     # output extracted paragraphs
+
                     for paragraph in document.paragraphs:
+                        # split paragraph into sentences.
                         split = paragraph.split(".")
-                        print_paragraph = False
-                        for string in split:
-                            if (len(search_word) <= len(string)) and fuzz.partial_ratio(search_word, string) > 80:
-                                print_paragraph = True
+                        for word in search_word.split(","):
+                            print_paragraph = False
+                            for string in split:
+                                if (len(word) <= len(string)) and fuzz.partial_ratio(word, string) > 80:
+                                    print_paragraph = True
+                                    break
+                            # exit after finding first match when or mode is selected
+                            if print_paragraph and not search_mode:
                                 break
+                            # exit if one of words was not Found in and mode
+                            if not print_paragraph and search_mode:
+                                break
+
                         if print_paragraph:
                             with tag('p'):
                                 if not header_printed:

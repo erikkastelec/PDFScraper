@@ -1,4 +1,4 @@
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 
 import argparse
 import logging
@@ -20,7 +20,7 @@ def version():
 
 def main():
     # Define logger level helper
-    switcher = {
+    logger_switcher = {
         'critical': 50,
         'error': 40,
         'warning': 30,
@@ -39,6 +39,18 @@ def main():
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
+    # boolean input helper for search_mode
+    def search_mode_helper(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('and', '&', 't', 'y', '1', 'true'):
+            return True
+        elif v.lower() in ('or', '|', 'f', 'n', '0', 'false'):
+            return False
+        else:
+            raise argparse.ArgumentTypeError('"and" or "or" value expected')
+
+
     # Parse arguments from command line
     argumentParser = argparse.ArgumentParser()
     argumentParser.add_argument('--path', help='path to pdf folder or file', default=".")
@@ -52,13 +64,18 @@ def main():
     argumentParser.add_argument('--search', help='word to search for', default="default")
     argumentParser.add_argument('--tessdata', help='location of tesseract data files', default="/usr/share/tessdata")
     argumentParser.add_argument('--tables', type=str2bool, help='should tables be extracted and searched', default=True)
+    # True -> and mode, False -> or mode
+    argumentParser.add_argument('--search_mode', type=search_mode_helper, help='And or Or search, when multiple '
+                                                                               'search words are provided',
+                                default=True)
 
     args = vars(argumentParser.parse_args())
     output_path = args["out"]
-    log_level = switcher.get(args["log_level"])
-    searchWord = args["search"]
+    log_level = logger_switcher.get(args["log_level"])
+    search_word = args["search"]
     tessdata_location = args["tessdata"]
     tables_extract = args["tables"]
+    search_mode = args["search_mode"]
 
     # Set up logger
     logger = logging.getLogger(__name__)
@@ -140,7 +157,9 @@ def main():
             logger.debug(doc.text)
     logger.info('Done parsing PDFs')
     logger.info('Stopping')
-    generate_html(output_path, docs, searchWord)
+    generate_html(output_path, docs, search_word, search_mode)
     # clean up temporary directory
     shutil.rmtree(tempfile.gettempdir() + "/PDFScraper", ignore_errors=True)
     sys.exit(0)
+
+
