@@ -221,7 +221,6 @@ def preprocess_image(image):
     image = deskew(image)
     image = image * 255
     io.imsave(temp_image_path, image.astype(np.uint8))
-    io.imsave("/home/erikkastelec/Desktop/out2.jpg", image.astype(np.uint8))
     image = cv2.imread(temp_image_path)
     os.remove(temp_image_path)
     return image
@@ -292,7 +291,7 @@ def get_language(img, tessdata_location: str):
     detected_languages = detect_langs(text)
     # Convert iso-639-2b to iso-639-2t
     language = languages.get(part1=detected_languages[0].lang)
-    return "eng"
+    return language.part2t
 
 
 # parses Document to PDFDocument
