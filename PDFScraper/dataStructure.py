@@ -22,7 +22,6 @@ class Document:
         self.text = []
         self.images = []
         self.tables = []
-        self.tables_coordinates = []
         self.ltfigures = []
         self.paragraphs = []
         self.table_of_contents = []

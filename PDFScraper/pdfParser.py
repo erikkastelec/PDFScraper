@@ -368,43 +368,61 @@ def extract_table_of_contents(document: Document):
         logger.warning("Could not get table of contents for document at path " + document.path)
 
 
-def parse_layouts(document: Document):
-    for page_layout in document.page_layouts:
-        for element in page_layout:
-            # TODO: improve efficiency
-            # extract text and images if there is no table in that location
-            skip = False
-            if len(document.tables_coordinates) > 0:
-                for coordinates in document.tables_coordinates:
-                    # skip if element is inside already detected table
-                    if (coordinates[0] < element.bbox[0] < coordinates[2] or coordinates[1] < element.bbox[1] <
-                            coordinates[3]):
-                        skip = True
-                        break
-            if not skip:
-                if isinstance(element, LTTextBoxHorizontal):
-                    text = element.get_text()
-                    # fix Slovene chars and other anomalies
-                    text = re.sub(r'ˇs', "š", text)
-                    text = re.sub(r"ˇc", "č", text)
-                    text = re.sub(r"ˇz", "ž", text)
-                    text = re.sub(r"-\s", "", text)
+# Returns true if two rectangles(l1, r1)
+# and (l2, r2) overlap
+def doOverlap(l1, r1, l2, r2):
+    # If one rectangle is on left side of other
+    if l1[0] >= r2[0] or l2[0] >= r1[0]:
+        return False
 
-                    document.paragraphs.append(text)
-                elif isinstance(element, LTImage):
-                    # Save image objects
-                    document.images.append(element)
-                # TODO: recursively iterate over LTFigure to find images
+    # If one rectangle is above other
+    if l1[1] <= r2[1] or l2[1] <= r1[1]:
+        return False
+
+    return True
+
+
+def parse_layouts(document: Document):
+    count = 1
+    for page_layout in document.page_layouts:
+        parse_elements(document, page_layout, count)
+        count = count + 1
+
+
+# Recursively iterate over all the elements
+def parse_elements(document, page_layout, page):
+    for element in page_layout:
+        # TODO: improve efficiency
+        # extract text and images if there is no table in that location
+        skip = False
+        if len(document.tables) > 0 and hasattr(element, "x0"):
+            for table in document.tables:
+                # skip if element is inside already detected table
+                if (table.page == page and doOverlap((element.x0, element.y1), (element.x1, element.y0),
+                                                     (table._bbox[0], table._bbox[3]),
+                                                     (table._bbox[2], table._bbox[1]))):
+                    skip = True
+                    break
+        if not skip:
+            if isinstance(element, LTTextBoxHorizontal):
+                text = element.get_text()
+                # fix Slovene chars and other anomalies
+                text = re.sub(r'ˇs', "š", text)
+                text = re.sub(r"ˇc", "č", text)
+                text = re.sub(r"ˇz", "ž", text)
+                text = re.sub(r"-\s", "", text)
+                document.paragraphs.append(text)
+            elif isinstance(element, LTImage):
+                # Save image objects
+                document.images.append(element)
+        elif hasattr(element, '_objs'):
+            for el in element._objs:
+                if hasattr(el, '__iter__'):
+                    parse_elements(document, el, page)
 
 
 def extract_tables(document: Document, output_path: str):
     tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), flavor='lattice')
-    # find coordinates of table regions to exclude them from text extraction
-    for table in tables:
-        first_cell_coord = table.cells[0][0].lt
-        last_cel_coord = table.cells[-1][-1].rb
-        document.tables_coordinates.append(first_cell_coord + last_cel_coord)
-
     document.tables = tables
 
 
