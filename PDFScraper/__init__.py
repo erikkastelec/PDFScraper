@@ -1,4 +1,4 @@
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 
 import argparse
 import logging
@@ -137,8 +137,6 @@ def main():
                     if tables_extract:
                         extract_tables(doc, output_path)
                     parse_layouts(doc)
-                    logger.debug(doc.text)
-                logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 
             else:
                 logger.warning("Skipping parsing. Document is not extractable.")
@@ -154,7 +152,7 @@ def main():
             if tables_extract:
                 extract_tables(doc, output_path)
             parse_layouts(doc)
-            logger.debug(doc.text)
+        logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
     logger.info('Done parsing PDFs')
     logger.info('Stopping')
     generate_html(output_path, docs, search_word, search_mode)

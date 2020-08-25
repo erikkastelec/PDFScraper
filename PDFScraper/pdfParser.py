@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 import camelot
 import cv2
+import numpy as np
 import pytesseract
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from iso639 import languages
 from langdetect import detect_langs
-import numpy as np
 from pdf2image import pdf2image
 from pdfminer.converter import PDFPageAggregator, TextConverter
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTImage
@@ -22,7 +22,10 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pytesseract import TesseractNotFoundError, TesseractError
-from scipy.ndimage import interpolation as inter
+from skimage import io
+from skimage.feature import canny
+from skimage.transform import hough_line, hough_line_peaks, rotate
+
 from PDFScraper.dataStructure import Document
 
 # Set up logger
@@ -98,8 +101,110 @@ def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
     return resized
 
 
-def preprocess_image(image):
+# determine skew angle of image
+def determine_skew(image):
+    edges = canny(image, sigma=3.0)
+    h, a, d = hough_line(edges)
+    _, ap, _ = hough_line_peaks(h, a, d, num_peaks=20)
 
+    if len(ap) == 0:
+        return 0
+
+    def calculate_deviation(angle):
+
+        angle_in_degrees = np.abs(angle)
+        deviation = np.abs(np.pi / 4 - angle_in_degrees)
+        return deviation
+
+    absolute_deviations = [calculate_deviation(k) for k in ap]
+    average_deviation = np.mean(np.rad2deg(absolute_deviations))
+    ap_deg = [np.rad2deg(x) for x in ap]
+
+    bin_0_45 = []
+    bin_45_90 = []
+    bin_0_45n = []
+    bin_45_90n = []
+
+    def compare_sum(value):
+        if 44 <= value <= 46:
+            return True
+        else:
+            return False
+
+    for ang in ap_deg:
+        deviation_sum = int(90 - ang + average_deviation)
+        if compare_sum(deviation_sum):
+            bin_45_90.append(ang)
+            continue
+
+        deviation_sum = int(ang + average_deviation)
+        if compare_sum(deviation_sum):
+            bin_0_45.append(ang)
+            continue
+
+        deviation_sum = int(-ang + average_deviation)
+        if compare_sum(deviation_sum):
+            bin_0_45n.append(ang)
+            continue
+
+        deviation_sum = int(90 + ang + average_deviation)
+        if compare_sum(deviation_sum):
+            bin_45_90n.append(ang)
+
+    angles = [bin_0_45, bin_45_90, bin_0_45n, bin_45_90n]
+    lmax = 0
+
+    for j in range(len(angles)):
+        l = len(angles[j])
+        if l > lmax:
+            lmax = l
+            maxi = j
+
+    def get_max_freq_elem(arr):
+
+        max_arr = []
+        freqs = {}
+        for i in arr:
+            if i in freqs:
+                freqs[i] += 1
+            else:
+                freqs[i] = 1
+
+        sorted_keys = sorted(freqs, key=freqs.get, reverse=True)
+        max_freq = freqs[sorted_keys[0]]
+
+        for k in sorted_keys:
+            if freqs[k] == max_freq:
+                max_arr.append(k)
+
+        return max_arr
+
+    if lmax:
+        ans_arr = get_max_freq_elem(angles[maxi])
+        ans_res = np.mean(ans_arr)
+
+    else:
+        ans_arr = get_max_freq_elem(ap_deg)
+        ans_res = np.mean(ans_arr)
+
+    return ans_res
+
+
+# Apply deskewing to the image
+def deskew(image):
+    angle = determine_skew(image)
+
+    if 0 <= angle <= 90:
+        rot_angle = angle - 90
+    if -45 <= angle < 0:
+        rot_angle = angle - 90
+    if -90 <= angle < -45:
+        rot_angle = 90 + angle
+
+    return rotate(image, rot_angle, resize=True)
+
+
+def preprocess_image(image):
     # Denoising
     image = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 15)
     # RGB to grayscale
@@ -107,26 +212,18 @@ def preprocess_image(image):
     # Thresholding
     image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
-    # Skew correction
-    def determine_score(arr, angle):
-        data = inter.rotate(arr, angle, reshape=False, order=0)
-        histogram = np.sum(data, axis=1)
-        score = np.sum((histogram[1:] - histogram[:-1]) ** 2)
-        return histogram, score
-
-    scores = []
-    angles = np.arange(-5, 5 + 1, 1)
-    for angle in angles:
-        histogram, score = determine_score(image, angle)
-        scores.append(score)
-    best_angle = angles[scores.index(max(scores))]
-
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, best_angle, 1.0)
-    image = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, \
-                           borderMode=cv2.BORDER_REPLICATE)
-
+    # save and reread to convert to scikit-image image type
+    temp_image_path = tempfile.gettempdir() + "/PDFScraper" + "/" + "deskew.jpg"
+    cv2.imwrite(temp_image_path, image)
+    image = io.imread(temp_image_path)
+    os.remove(temp_image_path)
+    # perform deskewing
+    image = deskew(image)
+    image = image * 255
+    io.imsave(temp_image_path, image.astype(np.uint8))
+    io.imsave("/home/erikkastelec/Desktop/out2.jpg", image.astype(np.uint8))
+    image = cv2.imread(temp_image_path)
+    os.remove(temp_image_path)
     return image
 
 
@@ -138,8 +235,8 @@ def convert_to_pdf(document: Document, tessdata_location: str):
         # remove temporary image file
         os.remove(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
         # Resize imput image if not PDF
-        if not document.isPDF:
-            image = image_resize(image, width=1024)
+        # if not document.isPDF:
+        #     img = image_resize(img, width=1024)
         img = preprocess_image(img)
 
         # Extract testing using OCR
@@ -195,8 +292,7 @@ def get_language(img, tessdata_location: str):
     detected_languages = detect_langs(text)
     # Convert iso-639-2b to iso-639-2t
     language = languages.get(part1=detected_languages[0].lang)
-
-    return language.part2t
+    return "eng"
 
 
 # parses Document to PDFDocument
