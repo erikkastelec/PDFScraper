@@ -1,7 +1,8 @@
-__version__ = "1.0.9"
+__version__ = "1.0.10"
 
 import argparse
 import logging
+import os
 import shutil
 import signal
 import sys
@@ -101,7 +102,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     # Read PDFs from path
-    docs = Documents(args["path"])
+    docs = Documents(path=os.path.abspath(args["path"]))
     logger.info('Finding PDFs in ' + docs.path)
     try:
         find_pdfs_in_path(docs, docs.path)
