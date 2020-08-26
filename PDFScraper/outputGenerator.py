@@ -300,20 +300,23 @@ a {
                             tempfile_path = tempfile_path + "/table"
                             table.df[0].str.strip('.!? \n\t')
                             # perform fuzzy search over all columns
+                            found = False
                             for i in range(0, table.shape[1]):
-                                for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
-                                                         scorer=fuzz.partial_ratio):
-                                    if x[1] > 80:
-                                        table.to_html(tempfile_path, classes="responsive-table", index=False)
-                                        with codecs.open(tempfile_path, 'r') as table_file:
-                                            # replace \n in table to fix formatting
-                                            tab = re.sub(r'\\n', '<br>', table_file.read())
-                                            if not header_printed:
-                                                with tag('h2'):
-                                                    text("Found in document with location: " + str(document.path))
-                                            doc.asis(tab)
-                                            os.remove(tempfile_path)
-                                        break
+                                if not found:
+                                    for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
+                                                             scorer=fuzz.partial_ratio):
+                                        if x[1] > 80:
+                                            table.to_html(tempfile_path, classes="responsive-table", index=False)
+                                            with codecs.open(tempfile_path, 'r') as table_file:
+                                                # replace \n in table to fix formatting
+                                                tab = re.sub(r'\\n', '<br>', table_file.read())
+                                                if not header_printed:
+                                                    with tag('h2'):
+                                                        text("Found in document with location: " + str(document.path))
+                                                doc.asis(tab)
+                                                os.remove(tempfile_path)
+                                            found = True
+                                            break
 
     # write HTML to file
     # check if output path is a directory
