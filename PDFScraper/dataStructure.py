@@ -19,10 +19,8 @@ class Document:
         self.path = path
         self.ocr_path = path
         self.num_pages = None
-        self.text = []
         self.images = []
         self.tables = []
-        self.ltfigures = []
         self.paragraphs = []
         self.table_of_contents = []
         self.page_layouts = []

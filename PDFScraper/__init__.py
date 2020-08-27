@@ -1,4 +1,4 @@
-__version__ = "1.0.11"
+__version__ = "1.0.12"
 
 import argparse
 import logging
@@ -119,7 +119,7 @@ def main():
         if doc.isPDF:
             get_pdf_object(doc)
             if doc.extractable:
-                #extract_info(doc)
+
                 logger.debug('Document information:' + '\n' + doc.document_info_to_string())
                 extract_table_of_contents(doc)
                 logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())

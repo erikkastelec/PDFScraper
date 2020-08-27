@@ -4,7 +4,6 @@ import os
 import re
 import sys
 import tempfile
-from io import StringIO
 from typing import TYPE_CHECKING
 
 import camelot
@@ -15,7 +14,7 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 from iso639 import languages
 from langdetect import detect_langs
 from pdf2image import pdf2image
-from pdfminer.converter import PDFPageAggregator, TextConverter
+from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTImage
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
@@ -306,21 +305,6 @@ def get_pdf_object(document: Document):
         document.extractable = True
 
 
-def extract_text(document: Document):
-    output_string = StringIO()
-    with open(document.path, 'rb') as in_file:
-        parser = PDFParser(in_file)
-        pdf = PDFDocument(parser)
-        codec = 'unicode'
-        rsrcmgr = PDFResourceManager()
-        device = TextConverter(rsrcmgr, output_string, codec=codec, laparams=LAParams())
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
-        for page in PDFPage.create_pages(pdf):
-            interpreter.process_page(page)
-
-    return output_string.getvalue()
-
-
 def extract_info(document: Document):
     if document.isPDF:
         with open(document.path, 'rb') as f:
@@ -382,14 +366,18 @@ def doOverlap(l1, r1, l2, r2):
     return True
 
 
-def parse_layouts(document: Document):
+# parse pdfminer.six layouts
+def parse_layouts(document: Document, preserve_pdfminer_structure=True):
     count = 1
     for page_layout in document.page_layouts:
         parse_elements(document, page_layout, count)
         count = count + 1
+    # keep data structure small
+    if not preserve_pdfminer_structure:
+        page_layout = []
 
 
-# Recursively iterate over all the elements
+# Recursively iterate over all the lt elements from pdfminer.six
 def parse_elements(document, page_layout, page):
     for element in page_layout:
         # TODO: improve efficiency
