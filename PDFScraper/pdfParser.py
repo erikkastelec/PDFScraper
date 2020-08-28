@@ -226,7 +226,7 @@ def preprocess_image(image):
 
 
 # Preprocess the images for OCR then extract them
-def convert_to_pdf(document: Document, tessdata_location: str):
+def convert_to_pdf(document: Document, tessdata_location: str, config_options=""):
     pdf_pages = []
     for i in range(document.num_pages):
         img = cv2.imread(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".jpg")
@@ -243,7 +243,9 @@ def convert_to_pdf(document: Document, tessdata_location: str):
         if i == 0:
             language = get_language(img, tessdata_location)
         try:
-            config_options = '--psm 1 --tessdata-dir ' + tessdata_location
+            # uses provided config if available
+            if config_options == "":
+                config_options = '--psm 1 --tessdata-dir ' + tessdata_location
             text = pytesseract.image_to_pdf_or_hocr(img, extension='pdf', lang=language, config=config_options)
             with open(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + "_" + str(i) + ".pdf",
                       'w+b') as f:
@@ -334,9 +336,22 @@ def extract_info(document: Document):
 
 
 # layout analysis for every page
-def extract_page_layouts(document: Document):
+def extract_page_layouts(document: Document, config_options=""):
+    # calls get_pdf_object if document.doc, which contains PDFObject, is empty
+    if document.doc is not None:
+        get_pdf_object(document)
+    # use config_options if specified
+    if config_options == "":
+        config_options = "line_margin=0.8"
+    # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
+    args = dict(e.split('=') for e in config_options.split(','))
+    for key in args:
+        try:
+            args[key] = float(args[key])
+        except ValueError:
+            pass
     resource_manager = PDFResourceManager()
-    laparams = LAParams(line_margin=0.8)
+    laparams = LAParams(**args)
     page_aggregator = PDFPageAggregator(resource_manager, laparams=laparams)
     interpreter = PDFPageInterpreter(resource_manager, page_aggregator)
     for page in PDFPage.create_pages(document.doc):
@@ -366,15 +381,20 @@ def doOverlap(l1, r1, l2, r2):
     return True
 
 
-# parse pdfminer.six layouts
-def parse_layouts(document: Document, preserve_pdfminer_structure=True):
+# extracts LTTextBoxHorizontal and LTImage from layouts
+def parse_layouts(document: Document, preserve_pdfminer_structure=True, config_options=""):
     count = 1
+    # perform layout analysis if document.page_layouts is empty
+    if len(document.page_layouts) == 0:
+        extract_page_layouts(document, config_options)
+
     for page_layout in document.page_layouts:
         parse_elements(document, page_layout, count)
         count = count + 1
-    # keep data structure small
+    # keep data structure small by deleting pdfminer objects, which are not needed anymore
     if not preserve_pdfminer_structure:
         page_layout = []
+        document.doc = None
 
 
 # Recursively iterate over all the lt elements from pdfminer.six
@@ -409,8 +429,18 @@ def parse_elements(document, page_layout, page):
                     parse_elements(document, el, page)
 
 
-def extract_tables(document: Document, output_path: str):
-    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), flavor='lattice')
+def extract_tables(document: Document, output_path: str, config_options=""):
+    # use config_options if specified
+    if config_options == "":
+        config_options = "flavor=lattice"
+    # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
+    args = dict(e.split('=') for e in config_options.split(','))
+    for key in args:
+        try:
+            args[key] = int(args[key])
+        except ValueError:
+            pass
+    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), **args)
     document.tables = tables
 
 
@@ -421,4 +451,3 @@ if __name__ == "__main__":
     argumentParser.add_argument('--path', help='path to pdf file', required=True)
     args = vars(argumentParser.parse_args())
     doc = Document(args["path"])
-    print(extract_text(doc))
