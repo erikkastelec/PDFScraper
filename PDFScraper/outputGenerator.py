@@ -322,5 +322,5 @@ a {
     # check if output path is a directory
     if not os.path.isdir(output_path):
         output_path = str(Path(output_path).parent)
-    with open(output_path + "/summary.html", "w") as file:
+    with open(output_path + "/summary.html", "w", encoding='utf-8') as file:
         file.write(indent(doc.getvalue()))
