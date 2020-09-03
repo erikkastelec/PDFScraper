@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 import pytesseract
 from PyPDF2 import PdfFileReader, PdfFileWriter
+from fuzzywuzzy import fuzz, process
 from iso639 import languages
 from langdetect import detect_langs
 from pdf2image import pdf2image
@@ -25,23 +26,37 @@ from skimage import io
 from skimage.feature import canny
 from skimage.transform import hough_line, hough_line_peaks, rotate
 
-from PDFScraper.dataStructure import Document
+from PDFScraper.dataStructure import Document, Documents
 
 # Set up logger
 log_level = 20
 if TYPE_CHECKING:
-    from PDFScraper.main import log_level
-logger = logging.getLogger(__name__)
+    from PDFScraper.cli import log_level
+logger = logging.getLogger("PDFScraper")
 logger.setLevel(log_level)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(log_level)
-consoleHandler.setFormatter(formatter)
-fileHandler = logging.FileHandler('PDFScraper.log', 'w')
-fileHandler.setLevel(log_level)
-fileHandler.setFormatter(formatter)
-logger.addHandler(consoleHandler)
-logger.addHandler(fileHandler)
+
+
+def find_pdfs_in_path(docs: Documents, path: str):
+    if os.path.exists(path):
+        if os.path.isdir(path):  # find PDFs in directory and add them to the list
+            count = 0
+            for f in os.listdir(path):
+                count += 1
+                find_pdfs_in_path(docs, path + '/' + f)
+        elif os.path.isfile(path) and (path.endswith(".pdf")):
+
+            docs.num_docs += 1
+            docs.docs.append(Document(path, docs, True))
+        elif os.path.isfile(path) and (path.endswith(".bmp") or path.endswith(".jpg") or path.endswith(".pbm")
+                                       or path.endswith(".pgm") or path.endswith(".ppm") or path.endswith(".jpeg")
+                                       or path.endswith(".jpe") or path.endswith(".jp2") or path.endswith(".tiff")
+                                       or path.endswith(".tif") or path.endswith(".png")):
+            docs.num_docs += 1
+
+            docs.docs.append(Document(path, docs, False))
+
+    else:
+        raise Exception("Provided path does not exist")
 
 
 # Get filename from path
@@ -287,7 +302,6 @@ def get_language(img, tessdata_location: str):
         logger.error(e)
         sys.exit(1)
     # Assume that all pages contain the same language
-    # TODO: clean this up
     # Detect language from extracted text
     detected_languages = detect_langs(text)
     # Convert iso-639-2b to iso-639-2t
@@ -297,7 +311,7 @@ def get_language(img, tessdata_location: str):
 
 # parses Document to PDFDocument
 def get_pdf_object(document: Document):
-    # use OCR file if available
+    # use OCR processed file if available
     file = open(document.ocr_path, 'rb')
     parser = PDFParser(file)
     document.doc = PDFDocument(parser)
@@ -312,11 +326,6 @@ def extract_info(document: Document):
         with open(document.path, 'rb') as f:
             pdf = PdfFileReader(f, strict=False)
             # TODO: Handle encrypted files
-            # if pdf.isEncrypted:
-            #     print(pdf.isEncrypted)
-            #     logger.error("Encrypted files are currently not supported")
-            #     logger.error("Aborting")
-            #     sys.exit(1)
 
             document.num_pages = pdf.getNumPages()
             info = pdf.getDocumentInfo()
@@ -336,13 +345,10 @@ def extract_info(document: Document):
 
 
 # layout analysis for every page
-def extract_page_layouts(document: Document, config_options=""):
+def extract_page_layouts(document: Document, config_options="line_margin=0.8"):
     # calls get_pdf_object if document.doc, which contains PDFObject, is empty
-    if document.doc is not None:
+    if document.doc is None:
         get_pdf_object(document)
-    # use config_options if specified
-    if config_options == "":
-        config_options = "line_margin=0.8"
     # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
     args = dict(e.split('=') for e in config_options.split(','))
     for key in args:
@@ -429,10 +435,7 @@ def parse_elements(document, page_layout, page):
                     parse_elements(document, el, page)
 
 
-def extract_tables(document: Document, output_path: str, config_options=""):
-    # use config_options if specified
-    if config_options == "":
-        config_options = "flavor=lattice"
+def extract_tables(document: Document, output_path: str, config_options="flavor=lattice"):
     # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
     args = dict(e.split('=') for e in config_options.split(','))
     for key in args:
@@ -441,7 +444,56 @@ def extract_tables(document: Document, output_path: str, config_options=""):
         except ValueError:
             pass
     tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), **args)
+    # remove tables with bad accuracy
+    tables = [table for table in tables if table.accuracy > 90]
     document.tables = tables
+
+
+def find_words_paragraphs(document: Document, search_mode, search_word, match_score):
+    result = []
+    for paragraph in document.paragraphs:
+        # split paragraph into sentences.
+        split = paragraph.split(".")
+        for word in search_word.split(","):
+            found = False
+            for string in split:
+                if (len(word) <= len(string)) and fuzz.partial_ratio(word, string) > match_score:
+                    found = True
+                    break
+            # exit after finding first match when or mode is selected
+            if found and not search_mode:
+                break
+            # exit if one of words was not Found in and mode
+            if not found and search_mode:
+                break
+        if found:
+            result.append(paragraph)
+    return result
+
+
+def find_words_tables(document: Document, search_mode, search_word, match_score):
+    result = []
+    for table in document.tables:
+        table.df[0].str.strip('.!? \n\t')
+        # perform fuzzy search over all columns
+        found = False
+        for i in range(0, table.shape[1]):
+            if found:
+                break
+            for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
+                                     scorer=fuzz.partial_ratio):
+                if x[1] > 80:
+                    found = True
+                    break
+            # exit after finding first match when or mode is selected
+            if found and not search_mode:
+                break
+            # exit if one of words was not Found in and mode
+            if not found and search_mode:
+                break
+        if found:
+            result.append(table)
+    return result
 
 
 if __name__ == "__main__":

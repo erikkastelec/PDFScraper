@@ -4,9 +4,9 @@ import re
 import tempfile
 from pathlib import Path
 
-from fuzzywuzzy import fuzz, process
 from yattag import Doc, indent
 
+from PDFScraper.core import find_words_paragraphs, find_words_tables
 from PDFScraper.dataStructure import Documents
 
 
@@ -18,6 +18,8 @@ def generate_html(output_path: str, docs: Documents, search_word: str, search_mo
 
     with tag('html'):
         with tag('head'):
+
+            # Add css for better looking tables
             with tag('style'):
                 doc.asis('''
 
@@ -261,35 +263,17 @@ a {
                 with tag('div', id=str(doc_index)):
                     doc_index += 1
                     header_printed = False
-
-                    # output extracted paragraphs
-
-                    for paragraph in document.paragraphs:
-                        # split paragraph into sentences.
-                        split = paragraph.split(".")
-                        for word in search_word.split(","):
-                            print_paragraph = False
-                            for string in split:
-                                if (len(word) <= len(string)) and fuzz.partial_ratio(word, string) > 80:
-                                    print_paragraph = True
-                                    break
-                            # exit after finding first match when or mode is selected
-                            if print_paragraph and not search_mode:
-                                break
-                            # exit if one of words was not Found in and mode
-                            if not print_paragraph and search_mode:
-                                break
-
-                        if print_paragraph:
-                            with tag('p'):
-                                if not header_printed:
-                                    with tag('h2'):
-                                        text("Found in document with location: " + str(document.path))
-                                header_printed = True
-                                text(paragraph)
-                    # output extracted tables
+                    # output paragraphs containing search words
+                    for paragraph in find_words_paragraphs(document, search_mode, search_word, 80):
+                        with tag('p'):
+                            if not header_printed:
+                                with tag('h2'):
+                                    text("Found in document with location: " + str(document.path))
+                            header_printed = True
+                            text(paragraph)
+                    # output tables containing search words
                     table_index = 0
-                    for table in document.tables:
+                    for table in find_words_tables(document, search_mode, search_word, 80):
                         with tag('div', id="table" + str(table_index), klass="container"):
                             table_index += 1
                             tempfile_path = tempfile.gettempdir() + "/PDFScraper"
@@ -298,25 +282,15 @@ a {
                             except FileExistsError:
                                 pass
                             tempfile_path = tempfile_path + "/table"
-                            table.df[0].str.strip('.!? \n\t')
-                            # perform fuzzy search over all columns
-                            found = False
-                            for i in range(0, table.shape[1]):
-                                if not found:
-                                    for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
-                                                             scorer=fuzz.partial_ratio):
-                                        if x[1] > 80:
-                                            table.to_html(tempfile_path, classes="responsive-table", index=False)
-                                            with codecs.open(tempfile_path, 'r') as table_file:
-                                                # replace \n in table to fix formatting
-                                                tab = re.sub(r'\\n', '<br>', table_file.read())
-                                                if not header_printed:
-                                                    with tag('h2'):
-                                                        text("Found in document with location: " + str(document.path))
-                                                doc.asis(tab)
-                                                os.remove(tempfile_path)
-                                            found = True
-                                            break
+                            table.to_html(tempfile_path, classes="responsive-table", index=False)
+                            with codecs.open(tempfile_path, 'r') as table_file:
+                                # replace \n in table to fix formatting
+                                tab = re.sub(r'\\n', '<br>', table_file.read())
+                                if not header_printed:
+                                    with tag('h2'):
+                                        text("Found in document with location: " + str(document.path))
+                                doc.asis(tab)
+                                os.remove(tempfile_path)
 
     # write HTML to file
     # check if output path is a directory

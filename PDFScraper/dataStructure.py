@@ -1,6 +1,4 @@
 
-
-
 class Documents:
     def __init__(self, path: str):
         self.num_docs = 0
@@ -9,9 +7,9 @@ class Documents:
 
 
 class Document:
-    def __init__(self, path: str, parent: Documents, isPDF: bool):
+    def __init__(self, path: str, parent: Documents, is_pdf: bool):
         self.parent = parent
-        self.isPDF = isPDF
+        self.isPDF = is_pdf
         self.author = "unknown"
         self.producer = "unknown"
         self.subject = "unknown"
