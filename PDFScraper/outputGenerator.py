@@ -7,10 +7,9 @@ from pathlib import Path
 from yattag import Doc, indent
 
 from PDFScraper.core import find_words_paragraphs, find_words_tables
-from PDFScraper.dataStructure import Documents
 
 
-def generate_html(output_path: str, docs: Documents, search_word: str, search_mode: bool):
+def generate_html(output_path: str, docs, search_word: str, search_mode: bool):
     # TODO: implement html generation
     doc, tag, text = Doc().tagtext()
 
@@ -259,12 +258,13 @@ a {
             with tag('h1', id="heading"):
                 text('Summary of search results')
             doc_index = 0
-            for document in docs.docs:
+            for document in docs:
                 with tag('div', id=str(doc_index)):
                     doc_index += 1
                     header_printed = False
                     # output paragraphs containing search words
-                    for paragraph in find_words_paragraphs(document, search_mode, search_word, 80):
+                    for paragraph in find_words_paragraphs(document.paragraphs, search_mode, search_word.split(","),
+                                                           80):
                         with tag('p'):
                             if not header_printed:
                                 with tag('h2'):
@@ -273,7 +273,7 @@ a {
                             text(paragraph)
                     # output tables containing search words
                     table_index = 0
-                    for table in find_words_tables(document, search_mode, search_word, 80):
+                    for table in find_words_tables(document.tables, search_mode, search_word.split(","), 80):
                         with tag('div', id="table" + str(table_index), klass="container"):
                             table_index += 1
                             tempfile_path = tempfile.gettempdir() + "/PDFScraper"

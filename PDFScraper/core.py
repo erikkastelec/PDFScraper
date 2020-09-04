@@ -21,12 +21,13 @@ from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
+from pdfminer.pdftypes import PDFObject
 from pytesseract import TesseractNotFoundError, TesseractError
 from skimage import io
 from skimage.feature import canny
 from skimage.transform import hough_line, hough_line_peaks, rotate
 
-from PDFScraper.dataStructure import Document, Documents
+from PDFScraper.dataStructure import Document
 
 # Set up logger
 log_level = 20
@@ -36,27 +37,28 @@ logger = logging.getLogger("PDFScraper")
 logger.setLevel(log_level)
 
 
-def find_pdfs_in_path(docs: Documents, path: str):
+def find_pdfs_in_path(path: str):
+    pdfs = []
     if os.path.exists(path):
         if os.path.isdir(path):  # find PDFs in directory and add them to the list
             count = 0
             for f in os.listdir(path):
                 count += 1
-                find_pdfs_in_path(docs, path + '/' + f)
-        elif os.path.isfile(path) and (path.endswith(".pdf")):
+                find_pdfs_in_path(path + '/' + f)
 
-            docs.num_docs += 1
-            docs.docs.append(Document(path, docs, True))
+        elif os.path.isfile(path) and (path.endswith(".pdf")):
+            pdfs.append(Document(path, True))
+
         elif os.path.isfile(path) and (path.endswith(".bmp") or path.endswith(".jpg") or path.endswith(".pbm")
                                        or path.endswith(".pgm") or path.endswith(".ppm") or path.endswith(".jpeg")
                                        or path.endswith(".jpe") or path.endswith(".jp2") or path.endswith(".tiff")
                                        or path.endswith(".tif") or path.endswith(".png")):
-            docs.num_docs += 1
 
-            docs.docs.append(Document(path, docs, False))
+            pdfs.append(Document(path, False))
 
     else:
         raise Exception("Provided path does not exist")
+    return pdfs
 
 
 # Get filename from path
@@ -72,7 +74,7 @@ def pdf_to_image(document: Document):
     except FileExistsError:
         pass
 
-    if document.isPDF:
+    if document.is_pdf:
         pages = pdf2image.convert_from_path(pdf_path=document.path, dpi=300)
         # TODO: implement saving to temp dir with mkstemp for better security
         for i in range(len(pages)):
@@ -116,10 +118,10 @@ def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
 
 
 # determine skew angle of image
-def determine_skew(image):
-    edges = canny(image, sigma=3.0)
+def determine_skew(image, sigma=3.0, num_peaks=20):
+    edges = canny(image, sigma=sigma)
     h, a, d = hough_line(edges)
-    _, ap, _ = hough_line_peaks(h, a, d, num_peaks=20)
+    _, ap, _ = hough_line_peaks(h, a, d, num_peaks=num_peaks)
 
     if len(ap) == 0:
         return 0
@@ -207,7 +209,6 @@ def determine_skew(image):
 # Apply deskewing to the image
 def deskew(image):
     angle = determine_skew(image)
-
     if 0 <= angle <= 90:
         rot_angle = angle - 90
     if -45 <= angle < 0:
@@ -224,8 +225,8 @@ def preprocess_image(image):
     # RGB to grayscale
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # Thresholding
-    image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
+    # image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     # save and reread to convert to scikit-image image type
     temp_image_path = tempfile.gettempdir() + "/PDFScraper" + "/" + "deskew.jpg"
     cv2.imwrite(temp_image_path, image)
@@ -250,13 +251,16 @@ def convert_to_pdf(document: Document, tessdata_location: str, config_options=""
         # Resize imput image if not PDF
         # if not document.isPDF:
         #     img = image_resize(img, width=1024)
+
         img = preprocess_image(img)
 
-        # Extract testing using OCR
-
-        # Extract language only from the first page
+        # Extract language from the first page only
         if i == 0:
             language = get_language(img, tessdata_location)
+            # if not english or slovene set to english
+            if language != "eng" or language != "slv":
+                language = "eng"
+
         try:
             # uses provided config if available
             if config_options == "":
@@ -311,44 +315,46 @@ def get_language(img, tessdata_location: str):
 
 # parses Document to PDFDocument
 def get_pdf_object(document: Document):
+    if document.filename is None:
+        get_filename(document)
     # use OCR processed file if available
     file = open(document.ocr_path, 'rb')
     parser = PDFParser(file)
-    document.doc = PDFDocument(parser)
-    parser.set_document(document.doc)
+    pdf_object = PDFDocument(parser)
+    parser.set_document(pdf_object)
 
-    if document.doc.is_extractable:
+    if pdf_object.is_extractable:
         document.extractable = True
+    return pdf_object
 
 
 def extract_info(document: Document):
-    if document.isPDF:
+    if document.filename is None:
+        get_filename(document)
+    if document.is_pdf:
         with open(document.path, 'rb') as f:
             pdf = PdfFileReader(f, strict=False)
             # TODO: Handle encrypted files
 
             document.num_pages = pdf.getNumPages()
-            info = pdf.getDocumentInfo()
-            if info is not None:
-                document.author = "unknown" if not info.author else info.author
-                document.creator = "unknown" if not info.creator else info.creator
-                document.producer = "unknown" if not info.producer else info.producer
-                document.subject = "unknown" if not info.subject else info.subject
-                document.title = "unknown" if not info.title else info.title
+            informations = pdf.getDocumentInfo()
+            if informations is not None:
+                document.info.author = "unknown" if not informations.author else informations.author
+                document.info.creator = "unknown" if not informations.creator else informations.creator
+                document.info.producer = "unknown" if not informations.producer else informations.producer
+                document.info.subject = "unknown" if not informations.subject else informations.subject
+                document.info.title = "unknown" if not informations.title else informations.title
     else:
         document.num_pages = 1
-        document.author = "unknown"
-        document.creator = "unknown"
-        document.producer = "unknown"
-        document.subject = "unknown"
-        document.title = "unknown"
+        document.info.author = "unknown"
+        document.info.creator = "unknown"
+        document.info.producer = "unknown"
+        document.info.subject = "unknown"
+        document.info.title = "unknown"
 
 
 # layout analysis for every page
-def extract_page_layouts(document: Document, config_options="line_margin=0.8"):
-    # calls get_pdf_object if document.doc, which contains PDFObject, is empty
-    if document.doc is None:
-        get_pdf_object(document)
+def extract_page_layouts(pdf_object: PDFObject, config_options="line_margin=0.8"):
     # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
     args = dict(e.split('=') for e in config_options.split(','))
     for key in args:
@@ -360,15 +366,17 @@ def extract_page_layouts(document: Document, config_options="line_margin=0.8"):
     laparams = LAParams(**args)
     page_aggregator = PDFPageAggregator(resource_manager, laparams=laparams)
     interpreter = PDFPageInterpreter(resource_manager, page_aggregator)
-    for page in PDFPage.create_pages(document.doc):
+    page_layouts = []
+    for page in PDFPage.create_pages(pdf_object):
         interpreter.process_page(page)
-        document.page_layouts.append(page_aggregator.get_result())
+        page_layouts.append(page_aggregator.get_result())
+    return page_layouts
 
 
-def extract_table_of_contents(document: Document):
+def extract_table_of_contents(document: Document, pdf_object):
     try:
-        for (level, title, dest, a, se) in document.doc.get_outlines():
-            document.table_of_contents.append((level, title))
+        for (level, title, dest, a, se) in pdf_object.get_outlines():
+            document.info.table_of_contents.append((level, title))
     except PDFNoOutlines:
         logger.warning("Could not get table of contents for document at path " + document.path)
 
@@ -388,19 +396,11 @@ def doOverlap(l1, r1, l2, r2):
 
 
 # extracts LTTextBoxHorizontal and LTImage from layouts
-def parse_layouts(document: Document, preserve_pdfminer_structure=True, config_options=""):
+def parse_layouts(document: Document, page_layouts):
     count = 1
-    # perform layout analysis if document.page_layouts is empty
-    if len(document.page_layouts) == 0:
-        extract_page_layouts(document, config_options)
-
-    for page_layout in document.page_layouts:
+    for page_layout in page_layouts:
         parse_elements(document, page_layout, count)
         count = count + 1
-    # keep data structure small by deleting pdfminer objects, which are not needed anymore
-    if not preserve_pdfminer_structure:
-        page_layout = []
-        document.doc = None
 
 
 # Recursively iterate over all the lt elements from pdfminer.six
@@ -435,7 +435,7 @@ def parse_elements(document, page_layout, page):
                     parse_elements(document, el, page)
 
 
-def extract_tables(document: Document, output_path: str, config_options="flavor=lattice"):
+def extract_tables(document: Document, config_options="pages=all,flavor=lattice,parallel=True"):
     # converts config_options, which is a string to dictionary, so it can be passed as **kwargs to camelot
     args = dict(e.split('=') for e in config_options.split(','))
     for key in args:
@@ -443,18 +443,19 @@ def extract_tables(document: Document, output_path: str, config_options="flavor=
             args[key] = int(args[key])
         except ValueError:
             pass
-    tables = camelot.read_pdf(document.path, pages='1-' + str(document.num_pages), **args)
+    # use new OCR path if available
+    tables = camelot.read_pdf(document.ocr_path, **args)
     # remove tables with bad accuracy
     tables = [table for table in tables if table.accuracy > 90]
     document.tables = tables
 
 
-def find_words_paragraphs(document: Document, search_mode, search_word, match_score):
+def find_words_paragraphs(paragraphs, search_mode, search_words, match_score):
     result = []
-    for paragraph in document.paragraphs:
+    for paragraph in paragraphs:
         # split paragraph into sentences.
         split = paragraph.split(".")
-        for word in search_word.split(","):
+        for word in search_words:
             found = False
             for string in split:
                 if (len(word) <= len(string)) and fuzz.partial_ratio(word, string) > match_score:
@@ -471,16 +472,16 @@ def find_words_paragraphs(document: Document, search_mode, search_word, match_sc
     return result
 
 
-def find_words_tables(document: Document, search_mode, search_word, match_score):
+def find_words_tables(tables, search_mode, search_words, match_score):
     result = []
-    for table in document.tables:
+    for table in tables:
         table.df[0].str.strip('.!? \n\t')
         # perform fuzzy search over all columns
         found = False
         for i in range(0, table.shape[1]):
             if found:
                 break
-            for x in process.extract(search_word, table.df[i].astype(str).values.tolist(),
+            for x in process.extract(search_words[0], table.df[i].astype(str).values.tolist(),
                                      scorer=fuzz.partial_ratio):
                 if x[1] > 80:
                     found = True

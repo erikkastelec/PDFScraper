@@ -8,7 +8,6 @@ import tempfile
 
 from PDFScraper.core import get_filename, pdf_to_image, convert_to_pdf, get_pdf_object, extract_page_layouts, \
     extract_tables, parse_layouts, extract_table_of_contents, extract_info, find_pdfs_in_path
-from PDFScraper.dataStructure import Documents
 from PDFScraper.outputGenerator import generate_html
 
 # Define logger level helper
@@ -88,58 +87,57 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def cli():
+    path = os.path.abspath(args["path"])
+    logger.info('Finding PDFs in ' + path)
     # Read PDFs from path
-    docs = Documents(path=os.path.abspath(args["path"]))
-    logger.info('Finding PDFs in ' + docs.path)
     try:
-        find_pdfs_in_path(docs, docs.path)
+        docs = find_pdfs_in_path(path)
     except Exception as e:
         logger.error(e)
         sys.exit(1)
-    logger.info('Found ' + str(docs.num_docs) + ' PDFs')
+    logger.info('Found ' + str(len(docs)) + ' PDFs')
 
-    logger.info('Parsing ' + str(docs.num_docs) + ' documents')
+    logger.info('Parsing ' + str(len(docs)) + ' documents')
     # Extract information about PDFs
     progress_counter = 1
-    for doc in docs.docs:
+    for doc in docs:
         extract_info(doc)
-        if doc.isPDF:
-            get_pdf_object(doc)
+        get_filename(doc)
+        if doc.is_pdf:
+            pdf_object = get_pdf_object(doc)
             if doc.extractable:
 
                 logger.debug('Document information:' + '\n' + doc.document_info_to_string())
-                extract_table_of_contents(doc)
+                extract_table_of_contents(doc, pdf_object)
                 logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
-                extract_page_layouts(doc)
+                page_layouts = extract_page_layouts(pdf_object)
                 # table extraction is possible only for text based PDFs
                 if tables_extract:
-                    extract_tables(doc, output_path)
-                parse_layouts(doc)
+                    extract_tables(doc)
+                parse_layouts(doc, page_layouts)
                 if len(doc.paragraphs) == 0:
                     logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
-                    get_filename(doc)
                     pdf_to_image(doc)
                     convert_to_pdf(doc, tessdata_location)
-                    get_pdf_object(doc)
-                    extract_page_layouts(doc)
+                    pdf_object = get_pdf_object(doc)
+                    page_layouts = extract_page_layouts(pdf_object)
                     if tables_extract:
-                        extract_tables(doc, output_path)
-                    parse_layouts(doc)
+                        extract_tables(doc)
+                    parse_layouts(doc, page_layouts)
 
             else:
-                logger.warning("Skipping parsing. Document is not extractable.")
-            logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(docs.num_docs) + ' documents')
+                logger.warning("Skipping parsing. Document is not exable.")
+            logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(len(docs)) + ' documents')
             progress_counter += 1
         else:
             logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
-            get_filename(doc)
             pdf_to_image(doc)
             convert_to_pdf(doc, tessdata_location)
-            get_pdf_object(doc)
-            extract_page_layouts(doc)
+            pdf_object = get_pdf_object(doc)
+            page_layouts = extract_page_layouts(pdf_object)
             if tables_extract:
-                extract_tables(doc, output_path)
-            parse_layouts(doc)
+                extract_tables(doc)
+            parse_layouts(doc, page_layouts)
         logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
     logger.info('Done parsing PDFs')
     logger.info('Stopping')
