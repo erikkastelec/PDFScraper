@@ -26,6 +26,8 @@ optional arguments:
   --search_mode SEARCH_MODE
                         And or Or search, when multiple search words are
                         provided
+  --multiprocessing MULTIPROCESSING
+                        should multiprocessing be enabled
 </pre>
 
 
@@ -41,6 +43,8 @@ optional arguments:
 `tables`, by default True, specifies whether to search for search word in tables. Disabling tables search improves speed significantly.
 
 `search_mode`, by default in 'and' mode, specifies whether all the search terms need to be contained inside paragraph. In 'or' mode, the paragraph is returned if any of the terms are contained. In 'and' mode, the paragraph is returned if all the terms are contained.
+
+`multiprocessing`, by default True, runs process in multiple threads to speed up.
 ### OCR
 
 **tessdata pretrained language [files](https://github.com/tesseract-ocr/tessdata_best) need to be manually added to the tessdata directory.**
