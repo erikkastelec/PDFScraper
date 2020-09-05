@@ -44,7 +44,7 @@ def find_pdfs_in_path(path: str):
             count = 0
             for f in os.listdir(path):
                 count += 1
-                find_pdfs_in_path(path + '/' + f)
+                pdfs = pdfs + find_pdfs_in_path(path + '/' + f)
 
         elif os.path.isfile(path) and (path.endswith(".pdf")):
             pdfs.append(Document(path, True))
