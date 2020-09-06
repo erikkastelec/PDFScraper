@@ -44,7 +44,7 @@ optional arguments:
 
 `search_mode`, by default in 'and' mode, specifies whether all the search terms need to be contained inside paragraph. In 'or' mode, the paragraph is returned if any of the terms are contained. In 'and' mode, the paragraph is returned if all the terms are contained.
 
-`multiprocessing`, by default True, runs process in multiple threads to speed up.
+`multiprocessing`, by default True, runs process in multiple threads to speed up processing. **Should not be used with OCR as it significantly decreases performance**
 ### OCR
 
 **tessdata pretrained language [files](https://github.com/tesseract-ocr/tessdata_best) need to be manually added to the tessdata directory.**

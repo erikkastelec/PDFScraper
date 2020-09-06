@@ -114,8 +114,7 @@ def process_doc(doc):
 
         else:
             logger.warning("Skipping parsing. Document is not exable.")
-        # logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(len(docs)) + ' documents')
-        # progress_counter += 1
+
     else:
         logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
         pdf_to_image(doc)
@@ -142,13 +141,16 @@ def cli():
     # Extract information about PDFs
     progress_counter = 1
 
-    # Multiprocessing
+    # Multiprocessing -- Improves speed of processing multiple documents significantly
+    # !! BAD PERFORMANCE OF OCR WITH MULTIPLE FILES
     if args["multiprocessing"]:
         pool = multiprocessing.Pool()
         pool.map(process_doc, docs)
     else:
         for doc in docs:
             process_doc(doc)
+            logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(len(docs)) + ' documents')
+            progress_counter += 1
     logger.info('Done parsing PDFs')
     logger.info('Generating summary')
     generate_html(output_path, docs, search_word, search_mode)
@@ -158,41 +160,5 @@ def cli():
     sys.exit(0)
 
 
-def process_doc(doc):
-    extract_info(doc)
-    get_filename(doc)
-    if doc.is_pdf:
-        pdf_object = get_pdf_object(doc)
-        if doc.extractable:
-
-            logger.debug('Document information:' + '\n' + doc.document_info_to_string())
-            extract_table_of_contents(doc, pdf_object)
-            logger.debug('Table of contents: \n' + doc.table_of_contents_to_string())
-            page_layouts = extract_page_layouts(pdf_object)
-            # table extraction is possible only for text based PDFs
-            if tables_extract:
-                extract_tables(doc)
-            parse_layouts(doc, page_layouts)
-            if len(doc.paragraphs) == 0:
-                logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
-                pdf_to_image(doc)
-                convert_to_pdf(doc, tessdata_location)
-                pdf_object = get_pdf_object(doc)
-                page_layouts = extract_page_layouts(pdf_object)
-                if tables_extract:
-                    extract_tables(doc)
-                parse_layouts(doc, page_layouts)
-
-        else:
-            logger.warning("Skipping parsing. Document is not exable.")
-        # logger.info('Parsed ' + str(progress_counter) + ' out of ' + str(len(docs)) + ' documents')
-        # progress_counter += 1
-    else:
-        logger.info("Regular text extraction is not possible. Trying to extract text using OCR")
-        pdf_to_image(doc)
-        convert_to_pdf(doc, tessdata_location)
-        pdf_object = get_pdf_object(doc)
-        page_layouts = extract_page_layouts(pdf_object)
-        if tables_extract:
-            extract_tables(doc)
-        parse_layouts(doc, page_layouts)
+if __name__ == "__main__":
+    cli()

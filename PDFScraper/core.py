@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from typing import TYPE_CHECKING
 
 import camelot
@@ -228,11 +229,10 @@ def preprocess_image(image):
     # image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
     image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     # save and reread to convert to scikit-image image type
-    temp_image_path = tempfile.gettempdir() + "/PDFScraper" + "/" + "deskew.jpg"
+    temp_image_path = tempfile.gettempdir() + "/PDFScraper" + "/" + str(uuid.uuid4()) + "deskew.jpg"
     cv2.imwrite(temp_image_path, image)
     image = io.imread(temp_image_path)
     os.remove(temp_image_path)
-    # perform deskewing
     image = deskew(image)
     image = image * 255
     io.imsave(temp_image_path, image.astype(np.uint8))
@@ -496,11 +496,3 @@ def find_words_tables(tables, search_mode, search_words, match_score):
             result.append(table)
     return result
 
-
-if __name__ == "__main__":
-    import argparse
-
-    argumentParser = argparse.ArgumentParser()
-    argumentParser.add_argument('--path', help='path to pdf file', required=True)
-    args = vars(argumentParser.parse_args())
-    doc = Document(args["path"])
