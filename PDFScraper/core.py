@@ -278,19 +278,21 @@ def convert_to_pdf(document: Document, tessdata_location: str, config_options=""
             logger.error(e)
             sys.exit(1)
     pdf_writer = PdfFileWriter()
+    pdf_files = []
     for filename in pdf_pages:
         pdf_file = open(filename, 'rb')
+        pdf_files.append(pdf_file)
         pdf_reader = PdfFileReader(pdf_file)
         for i in range(pdf_reader.numPages):
             page = pdf_reader.getPage(i)
             pdf_writer.addPage(page)
-        pdf_file.close()
     with open(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + ".pdf", 'w+b') as out:
         pdf_writer.write(out)
         out.close()
         document.ocr_path = tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + ".pdf"
     # cleanup temporary files
-    for filename in pdf_pages:
+    for file, filename in zip(pdf_files, pdf_pages):
+        file.close()
         os.remove(filename)
 
 
@@ -497,4 +499,3 @@ def find_words_tables(tables, search_mode, search_words, match_score):
         if found:
             result.append(table)
     return result
-

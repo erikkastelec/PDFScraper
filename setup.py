@@ -51,7 +51,7 @@ setuptools.setup(
         "yattag==1.14.0",
     ],
     name="PDFScraper",
-    version="1.1.7",
+    version="1.1.8",
     author="Erik Kastelec",
     author_email="erikkastelec@gmail.com",
     description="PDF text and table search",
