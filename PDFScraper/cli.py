@@ -7,6 +7,8 @@ import signal
 import sys
 import tempfile
 
+import psutil
+
 from PDFScraper.core import get_filename, pdf_to_image, convert_to_pdf, get_pdf_object, extract_page_layouts, \
     extract_tables, parse_layouts, extract_table_of_contents, extract_info, find_pdfs_in_path
 from PDFScraper.outputGenerator import generate_html
@@ -126,6 +128,7 @@ def process_doc(doc):
         parse_layouts(doc, page_layouts)
     logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
 
+
 def cli():
     path = os.path.abspath(args["path"])
     logger.info('Finding PDFs in ' + path)
@@ -157,6 +160,13 @@ def cli():
     # clean up temporary directory
     logger.info('Stopping')
     shutil.rmtree(tempfile.gettempdir() + "/PDFScraper", ignore_errors=True)
+    # close all files that were left open
+    try:
+        for fd in psutil.Process().open_files():
+            open(fd.fd).close()
+    except Exception as e:
+        print(e)
+
     sys.exit(0)
 
 

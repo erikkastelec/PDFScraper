@@ -290,7 +290,7 @@ a {
                                     with tag('h2'):
                                         text("Found in document with location: " + str(document.path))
                                 doc.asis(tab)
-                                os.remove(tempfile_path)
+                            os.remove(tempfile_path)
 
     # write HTML to file
     # check if output path is a directory

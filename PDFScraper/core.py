@@ -284,6 +284,7 @@ def convert_to_pdf(document: Document, tessdata_location: str, config_options=""
         for i in range(pdf_reader.numPages):
             page = pdf_reader.getPage(i)
             pdf_writer.addPage(page)
+        pdf_file.close()
     with open(tempfile.gettempdir() + "/PDFScraper" + "/" + document.filename + ".pdf", 'w+b') as out:
         pdf_writer.write(out)
         out.close()
@@ -378,7 +379,8 @@ def extract_table_of_contents(document: Document, pdf_object):
         for (level, title, dest, a, se) in pdf_object.get_outlines():
             document.info.table_of_contents.append((level, title))
     except PDFNoOutlines:
-        logger.warning("Could not get table of contents for document at path " + document.path)
+        pass
+        # logger.warning("Could not get table of contents for document at path " + document.path)
 
 
 # Returns true if two rectangles(l1, r1)
