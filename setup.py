@@ -10,7 +10,7 @@ setuptools.setup(
         "cffi==1.14.2",
         "chardet==3.0.4; python_version > '3.0'",
         "click==7.1.2",
-        "cryptography==3.2",
+        "cryptography==3.3.2",
         "cycler==0.10.0",
         "decorator==4.4.2",
         "distro==1.5.0",
