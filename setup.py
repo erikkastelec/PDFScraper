@@ -31,7 +31,7 @@ setuptools.setup(
         "pdf2image==1.14.0",
         "pdfminer-six==20200726",
         "pdfminer.six==20200726",
-        "pillow==7.2.0",
+        "pillow==8.1.1",
         "psutil==5.7.2",
         "pycparser==2.20",
         "pyparsing==2.4.7",
