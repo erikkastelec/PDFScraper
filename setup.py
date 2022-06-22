@@ -24,7 +24,7 @@ setuptools.setup(
         "matplotlib==3.3.1",
         "memory-profiler==0.57.0",
         "networkx==2.5",
-        "numpy==1.19.2",
+        "numpy==1.22.0",
         "opencv-python==4.3.0.36",
         "openpyxl==3.0.5",
         "pandas==1.1.2",
