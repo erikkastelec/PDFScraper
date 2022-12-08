@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     install_requires=[
         "camelot-py==0.8.2",
-        "certifi==2020.6.20",
+        "certifi==2022.12.7",
         "cffi==1.14.2",
         "chardet==3.0.4; python_version > '3.0'",
         "click==7.1.2",
