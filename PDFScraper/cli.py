@@ -90,6 +90,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def process_doc(doc):
+
     extract_info(doc)
     get_filename(doc)
     if doc.is_pdf:
@@ -127,6 +128,7 @@ def process_doc(doc):
             extract_tables(doc)
         parse_layouts(doc, page_layouts)
     logger.debug('Paragraphs: \n' + '\n'.join(doc.paragraphs))
+    return doc
 
 
 def cli():
@@ -147,8 +149,9 @@ def cli():
     # Multiprocessing -- Improves speed of processing multiple documents significantly
     # !! BAD PERFORMANCE OF OCR WITH MULTIPLE FILES
     if args["multiprocessing"]:
-        pool = multiprocessing.Pool()
-        pool.map(process_doc, docs)
+        with multiprocessing.Pool() as p:
+           docs = p.map(process_doc, docs)
+
     else:
         for doc in docs:
             process_doc(doc)
@@ -165,7 +168,7 @@ def cli():
         for fd in psutil.Process().open_files():
             open(fd.fd).close()
     except Exception as e:
-        print(e)
+        logger.error(e)
 
     sys.exit(0)
 

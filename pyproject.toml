@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PDFScraper"
+version = "1.1.9"
+description = "PDF text and table search"
+authors = [ {name = "Erik Kastelec, email = erikkastelec@gmail.com"}]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "camelot-py",
+    "cffi",
+    "chardet",
+    "charset-normalizer",
+    "click",
+    "cryptography",
+    "distro",
+    "et-xmlfile",
+    "fuzzywuzzy",
+    "ghostscript",
+    "imageio",
+    "iso639",
+    "langdetect",
+    "lazy_loader",
+    "Levenshtein",
+    "networkx",
+    "numpy",
+    "opencv-python",
+    "openpyxl",
+    "packaging",
+    "pandas",
+    "pdf2image",
+    "pdfminer.six",
+    "pillow",
+    "psutil",
+    "pycparser",
+    "pypdf",
+    "pytesseract",
+    "python-dateutil",
+    "python-Levenshtein",
+    "pytz",
+    "rapidfuzz",
+    "scikit-image",
+    "scipy",
+    "six",
+    "tabula-py",
+    "tabulate",
+    "tifffile",
+    "typing_extensions",
+    "tzdata",
+    "wand",
+    "yattag"
+]
+

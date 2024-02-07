@@ -11,9 +11,9 @@ import camelot
 import cv2
 import numpy as np
 import pytesseract
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from pypdf import PdfReader, PdfWriter
 from fuzzywuzzy import fuzz, process
-from iso639 import languages
+import iso639
 from langdetect import detect_langs
 from pdf2image import pdf2image
 from pdfminer.converter import PDFPageAggregator
@@ -40,7 +40,9 @@ logger.setLevel(log_level)
 
 def find_pdfs_in_path(path: str):
     pdfs = []
+    print(path)
     if os.path.exists(path):
+
         if os.path.isdir(path):  # find PDFs in directory and add them to the list
             count = 0
             for f in os.listdir(path):
@@ -56,7 +58,6 @@ def find_pdfs_in_path(path: str):
                                        or path.endswith(".tif") or path.endswith(".png")):
 
             pdfs.append(Document(path, False))
-
     else:
         raise Exception("Provided path does not exist")
     return pdfs
@@ -277,12 +278,12 @@ def convert_to_pdf(document: Document, tessdata_location: str, config_options=""
         except TesseractError as e:
             logger.error(e)
             sys.exit(1)
-    pdf_writer = PdfFileWriter()
+    pdf_writer = PdfWriter()
     pdf_files = []
     for filename in pdf_pages:
         pdf_file = open(filename, 'rb')
         pdf_files.append(pdf_file)
-        pdf_reader = PdfFileReader(pdf_file)
+        pdf_reader = PdfReader(pdf_file)
         for i in range(pdf_reader.numPages):
             page = pdf_reader.getPage(i)
             pdf_writer.addPage(page)
@@ -312,7 +313,7 @@ def get_language(img, tessdata_location: str):
     # Detect language from extracted text
     detected_languages = detect_langs(text)
     # Convert iso-639-2b to iso-639-2t
-    language = languages.get(part1=detected_languages[0].lang)
+    language = iso639.Language.from_part1(detected_languages[0].lang)
     return language.part2t
 
 
@@ -336,11 +337,11 @@ def extract_info(document: Document):
         get_filename(document)
     if document.is_pdf:
         with open(document.path, 'rb') as f:
-            pdf = PdfFileReader(f, strict=False)
+            pdf = PdfReader(f, strict=False)
             # TODO: Handle encrypted files
 
-            document.num_pages = pdf.getNumPages()
-            informations = pdf.getDocumentInfo()
+            document.num_pages = len(pdf.pages)
+            informations = pdf.metadata
             if informations is not None:
                 document.info.author = "unknown" if not informations.author else informations.author
                 document.info.creator = "unknown" if not informations.creator else informations.creator

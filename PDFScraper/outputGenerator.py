@@ -259,6 +259,7 @@ a {
                 text('Summary of search results')
             doc_index = 0
             for document in docs:
+
                 with tag('div', id=str(doc_index)):
                     doc_index += 1
                     header_printed = False
